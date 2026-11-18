@@ -1,4 +1,4 @@
-import type { Card } from './cards';
+import { SUITS, cardIsSuit, isStone, type Card } from './cards';
 
 export type HandType =
   | 'high_card' | 'pair' | 'two_pair' | 'three_kind' | 'straight' | 'flush'
@@ -6,7 +6,7 @@ export type HandType =
 
 export interface HandResult {
   hand: HandType;
-  /** Cartas que puntúan (las demás son kickers). */
+  /** Cartas que puntúan, en el orden jugado (las demás son kickers; Stone siempre puntúa). */
   scoring: Card[];
 }
 
@@ -20,10 +20,10 @@ function isStraight(cards: Card[]): boolean {
   return sorted.join() === '2,3,4,5,14';
 }
 
-const isFlush = (cards: Card[]) => cards.length === 5 && cards.every((c) => c.suit === cards[0].suit);
+/** Color: las 5 cartas comparten algún palo (las Wild valen para cualquiera). */
+const isFlush = (cards: Card[]) => cards.length === 5 && SUITS.some((s) => cards.every((c) => cardIsSuit(c, s)));
 
-export function evaluateHand(cards: Card[]): HandResult {
-  if (cards.length === 0) throw new Error('Mano vacía');
+function evaluateCore(cards: Card[]): HandResult {
   const groups = new Map<number, Card[]>();
   for (const c of cards) groups.set(c.rank, [...(groups.get(c.rank) ?? []), c]);
   const sizes = [...groups.values()].sort((a, b) => b.length - a.length || b[0].rank - a[0].rank);
@@ -46,8 +46,19 @@ export function evaluateHand(cards: Card[]): HandResult {
   return { hand: 'high_card', scoring: [high] };
 }
 
+export function evaluateHand(cards: Card[]): HandResult {
+  if (cards.length === 0) throw new Error('Mano vacía');
+  // Las cartas Stone no tienen rango ni palo: no forman manos, pero siempre puntúan.
+  const rest = cards.filter((c) => !isStone(c));
+  if (rest.length === 0) return { hand: 'high_card', scoring: cards };
+  const core = evaluateCore(rest);
+  const set = new Set(core.scoring);
+  return { hand: core.hand, scoring: cards.filter((c) => isStone(c) || set.has(c)) };
+}
+
 /** ¿La mano jugada *contiene* este tipo de mano? (p. ej. un Full House contiene Pareja). */
-export function containsHand(cards: Card[], type: HandType): boolean {
+export function containsHand(played: Card[], type: HandType): boolean {
+  const cards = played.filter((c) => !isStone(c));
   const counts = new Map<number, number>();
   for (const c of cards) counts.set(c.rank, (counts.get(c.rank) ?? 0) + 1);
   const sizes = [...counts.values()].sort((a, b) => b - a);
@@ -60,6 +71,6 @@ export function containsHand(cards: Card[], type: HandType): boolean {
     case 'full_house': return max >= 3 && sizes[1] >= 2;
     case 'straight': return isStraight(cards);
     case 'flush': return isFlush(cards);
-    default: return cards.length > 0 && evaluateHand(cards).hand === type;
+    default: return cards.length > 0 && evaluateHand(played).hand === type;
   }
 }

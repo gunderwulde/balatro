@@ -18,7 +18,7 @@ describe('tienda', () => {
     expect(r.phase).toBe('shop');
     expect(r.shop!.items).toHaveLength(2);
     expect(r.shop!.packs).toHaveLength(2);
-    expect(r.shop!.voucher).not.toBeNull();
+    expect(r.shop!.vouchers[0]).not.toBeNull();
   });
 
   it('es determinista por semilla', () => {
@@ -33,7 +33,8 @@ describe('tienda', () => {
     expect(r.money).toBe(before - it.cost);
     expect(r.shop!.items[0]).toBeNull();
     if (it.kind === 'joker') expect(r.jokers).toHaveLength(1);
-    else expect(Object.values(r.levels)).toContain(2);
+    else if (it.kind === 'card') expect(r.fullDeck).toHaveLength(53);
+    else expect(r.consumables).toHaveLength(1);
   });
 
   it('sin dinero no se puede comprar', () => {
@@ -92,7 +93,7 @@ describe('tienda', () => {
 
   it('voucher Grabber da +1 mano', () => {
     const r = shopRun();
-    r.shop!.voucher = 'grabber';
+    r.shop!.vouchers[0] = 'grabber';
     r.buyVoucher();
     expect(r.maxHands).toBe(5);
     expect(r.money).toBe(90);

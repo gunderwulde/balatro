@@ -1,15 +1,24 @@
+import { CONSUMABLES, type ConsumableInstance } from '../core/consumables';
 import type { HandType } from '../core/hands';
-import { JOKERS, sellValue, type JokerInstance, type Rarity } from '../core/jokers';
+import { JOKERS, sellValue, type Edition, type JokerInstance, type Rarity } from '../core/jokers';
 import { PLANET_BY_ID } from '../core/planets';
 import { BLIND_REWARD, BLINDS, blindTarget, MAX_ANTE, type Run } from '../core/run';
 import { handStats, type ScoreEvent, type ScoreResult } from '../core/scoring';
-import { VOUCHER_COST, type ShopItem } from '../core/shop';
-import { EDITION_TEXT, JOKER_TEXT, PACK_TEXT, PLANET_TEXT, VOUCHER_TEXT } from '../i18n/content.es';
+import { PACK_SHAPE, type CardTemplate, type OpenPack, type PackKind, type PackSize, type ShopItem, type ShopKind } from '../core/shop';
+import { VOUCHER_COST } from '../core/vouchers';
+import { rankLabel } from '../core/cards';
+import { EDITION_TEXT, JOKER_TEXT, PLANET_TEXT } from '../i18n/content.es';
+import {
+  BOSS_TEXT, ENHANCEMENT_TEXT, MSG_TEXT, PACK_DESC, PACK_KIND_NAME, PACK_SIZE_NAME, SEAL_TEXT,
+  SPECTRAL_TEXT, TAG_TEXT, TAROT_TEXT, VOUCHER_TEXT,
+} from '../i18n/content2.es';
 import { BLIND_NAME, HAND_NAME } from '../i18n/es';
-import { jokerArt, packArt, planetArt, voucherArt } from '../render/itemArt';
+import { cardFaceUrl } from '../render/cardArt';
+import { chipArt, consumableArt, jokerArt, packArt, voucherArt } from '../render/itemArt';
 import type { Table } from '../render/table';
 
-const RARITY_NAME: Record<Rarity, string> = { common: 'Común', uncommon: 'Poco común', rare: 'Rara' };
+const RARITY_NAME: Record<Rarity, string> = { common: 'Común', uncommon: 'Poco común', rare: 'Rara', legendary: 'Legendaria' };
+const SUIT_NAME = { S: 'Picas', H: 'Corazones', D: 'Diamantes', C: 'Tréboles' } as const;
 const HAND_ORDER: HandType[] = [
   'flush_five', 'flush_house', 'five_kind', 'straight_flush', 'four_kind', 'full_house',
   'flush', 'straight', 'three_kind', 'two_pair', 'pair', 'high_card',
@@ -19,7 +28,13 @@ const SECRET: HandType[] = ['five_kind', 'flush_house', 'flush_five'];
 const fmt = (n: number) => n.toLocaleString('es-ES');
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** HUD y pantallas de la run (selección de ciega, jokers, tienda, cashout, fin) en DOM. */
+interface Described {
+  img: string;
+  tip: string;
+  edClass: string;
+}
+
+/** HUD y pantallas de la run (selección de ciega, jokers, consumibles, tienda, cashout, fin) en DOM. */
 export class GameUI {
   private root = document.createElement('div');
   private busy = false;
@@ -27,7 +42,10 @@ export class GameUI {
   private shownScore = 0;
   private scoreAnim = 0;
   private selJoker: number | null = null;
+  private selCons: number | null = null;
   private showHands = false;
+  private playErr: string | null = null;
+  private toastTimer = 0;
 
   constructor(
     private run: Run,
@@ -43,6 +61,7 @@ export class GameUI {
   dispose(): void {
     this.disposed = true;
     cancelAnimationFrame(this.scoreAnim);
+    clearTimeout(this.toastTimer);
     this.root.remove();
   }
 
@@ -53,29 +72,39 @@ export class GameUI {
     const r = this.run;
     this.shownScore = r.score;
     if (this.selJoker !== null && !r.jokers.some((j) => j.uid === this.selJoker)) this.selJoker = null;
+    if (this.selCons !== null && !r.consumables.some((c) => c.uid === this.selCons)) this.selCons = null;
     this.table.enabled = r.phase === 'playing' && !this.busy && !this.showHands;
     this.table.setVisible(r.phase === 'playing');
 
     let overlay = '';
     if (r.phase === 'blind_select') overlay = this.blindSelectHtml();
     else if (r.phase === 'cashout') overlay = this.cashoutHtml();
-    else if (r.phase === 'shop') overlay = r.openPack ? this.packHtml() : this.shopHtml();
+    else if (r.phase === 'shop') overlay = r.openPack ? this.packHtml(r.openPack) : this.shopHtml();
     else if (r.phase === 'won' || r.phase === 'lost') overlay = this.endHtml();
     const ended = r.phase === 'won' || r.phase === 'lost';
 
     this.root.innerHTML = `
       ${this.sideHtml()}
       ${ended ? '' : this.jokersHtml()}
+      ${ended ? '' : this.consumablesHtml()}
       ${r.phase === 'playing' ? this.actionsHtml() : ''}
       ${overlay}
-      ${this.showHands ? this.handsHtml() : ''}`;
+      ${this.showHands ? this.handsHtml() : ''}
+      <div class="toast" id="toast"></div>`;
     this.bind();
     this.updatePreview();
+  }
+
+  private chip(id: string, kind: 'tag' | 'boss', name: string, desc: string): string {
+    return `<span class="chip"><img src="${chipArt(id, kind)}" alt="${name}" draggable="false"/><div class="tip"><b>${name}</b><p>${desc}</p></div></span>`;
   }
 
   private sideHtml(): string {
     const r = this.run;
     const inBlind = r.phase === 'playing';
+    const boss = r.blind === 'boss' ? BOSS_TEXT[r.boss.id] : null;
+    const bossOff = inBlind && r.blind === 'boss' && !r.activeBoss;
+    const tags = r.tags.map((t) => this.chip(t, 'tag', TAG_TEXT[t].name, TAG_TEXT[t].desc)).join('');
     return `
     <aside class="side">
       <div class="side-top">
@@ -83,9 +112,11 @@ export class GameUI {
         <button class="table-back info" data-act="hands">Manos</button>
       </div>
       <div class="blind-card blind-${r.blind}">
-        <div class="blind-name">${BLIND_NAME[r.blind]}</div>
+        <div class="blind-name">${boss ? boss.name : BLIND_NAME[r.blind]}</div>
+        ${boss ? `<div class="boss-desc ${bossOff ? 'off' : ''}">${boss.desc}${bossOff ? ' (anulado)' : ''}</div>` : ''}
         <div class="stat-line">Objetivo <b>${fmt(r.target)}</b></div>
       </div>
+      ${tags ? `<div class="tag-row">${tags}</div>` : ''}
       <div class="stat-box">Puntos de la ronda<b id="round-score">${fmt(inBlind ? r.score : 0)}</b></div>
       <div class="stat-box preview"><span id="pv-name">&nbsp;</span>
         <div class="pv-nums"><span class="chips" id="pv-chips">0</span><i>×</i><span class="mult" id="pv-mult">0</span></div>
@@ -115,37 +146,99 @@ export class GameUI {
     </div>`;
   }
 
+  private consumablesHtml(): string {
+    const r = this.run;
+    const cards = r.consumables.map((c) => this.consumableCard(c)).join('');
+    const sel = r.consumables.find((c) => c.uid === this.selCons);
+    let actions = '<small>Consumibles</small>';
+    if (sel) {
+      const def = CONSUMABLES[sel.id];
+      const canUse = !(def.needsHand && r.phase !== 'playing');
+      actions = `${canUse ? `<button class="mini-btn" data-act="use" data-uid="${sel.uid}">Usar</button>` : ''}
+        <button class="mini-btn alt" data-act="sellcons" data-uid="${sel.uid}">Vender +$${Math.max(1, Math.floor(sel.cost / 2))}</button>`;
+    }
+    return `
+    <div class="cons-bar">
+      <div class="jokers-head"><span>${r.consumables.length}/${r.consumableSlots}</span>${actions}</div>
+      <div class="jokers-row">${cards || '<div class="empty-slot">Vacío</div>'}</div>
+    </div>`;
+  }
+
   private jokerCard(j: JokerInstance, index: number): string {
     const def = JOKERS[j.id];
     const text = JOKER_TEXT[j.id];
     const extra = j.state.mult !== undefined ? `<p class="cur">Actual: +${j.state.mult} Mult</p>` : '';
     const ed = j.edition ? `<p class="ed">${EDITION_TEXT[j.edition].name}: ${EDITION_TEXT[j.edition].desc}</p>` : '';
     const tip = `<b>${text.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${text.desc}</p>${extra}${ed}<p class="sell">Venta: $${sellValue(j)}</p>`;
-    return `<div class="icard joker ${j.edition ? 'ed-' + j.edition : ''} ${this.selJoker === j.uid ? 'sel' : ''}"
+    const dis = this.run.disabledJoker === j.uid ? 'disabled-joker' : '';
+    return `<div class="icard joker ${j.edition ? 'ed-' + j.edition : ''} ${dis} ${this.selJoker === j.uid ? 'sel' : ''}"
         draggable="true" data-uid="${j.uid}" data-index="${index}" data-act="joker">
         <img src="${jokerArt(j.id, def.rarity)}" alt="${text.name}" draggable="false"/><i class="fx"></i>
         <div class="tip">${tip}</div></div>`;
   }
 
-  private itemCard(item: ShopItem): { html: string; ok: boolean } {
-    if (item.kind === 'joker') {
-      const def = JOKERS[item.id];
-      const text = JOKER_TEXT[item.id];
-      const ed = item.edition
-        ? `<p class="ed">${EDITION_TEXT[item.edition].name}: ${EDITION_TEXT[item.edition].desc}</p>`
-        : '';
-      const tip = `<b>${text.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${text.desc}</p>${ed}`;
-      return {
-        ok: true,
-        html: `<div class="icard ${item.edition ? 'ed-' + item.edition : ''}"><img src="${jokerArt(item.id, def.rarity)}" draggable="false"/><i class="fx"></i><div class="tip">${tip}</div></div>`,
-      };
+  private consumableCard(c: ConsumableInstance): string {
+    const d = this.describe(c.kind, c.id, c.edition);
+    return `<div class="icard ${d.edClass} ${this.selCons === c.uid ? 'sel' : ''}" data-act="cons" data-uid="${c.uid}">
+      <img src="${d.img}" draggable="false"/><i class="fx"></i><div class="tip">${d.tip}<p class="sell">Venta: $${Math.max(1, Math.floor(c.cost / 2))}</p></div></div>`;
+  }
+
+  /** Imagen, tooltip y clase de edición de cualquier objeto de tienda/pack/inventario. */
+  private describe(kind: ShopKind, id: string, edition?: Edition, card?: CardTemplate): Described {
+    const edText = edition ? `<p class="ed">${EDITION_TEXT[edition].name}: ${EDITION_TEXT[edition].desc}</p>` : '';
+    const edClass = edition ? `ed-${edition}` : '';
+    switch (kind) {
+      case 'joker': {
+        const def = JOKERS[id];
+        const t = JOKER_TEXT[id];
+        return { img: jokerArt(id, def.rarity), edClass, tip: `<b>${t.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${t.desc}</p>${edText}` };
+      }
+      case 'planet': {
+        const hand = PLANET_BY_ID[id].hand;
+        const lvl = this.run.levels[hand] ?? 1;
+        const a = handStats(hand, lvl);
+        const b = handStats(hand, lvl + 1);
+        return {
+          img: consumableArt(id, 'planet'), edClass,
+          tip: `<b>${PLANET_TEXT[id]}</b><span class="rar r-planet">Planeta</span><p>${HAND_NAME[hand]}: Nv.${lvl} → Nv.${lvl + 1}</p><p>+${b.chips - a.chips} Fichas, +${b.mult - a.mult} Mult</p>${edText}`,
+        };
+      }
+      case 'tarot':
+      case 'spectral': {
+        const t = kind === 'tarot' ? TAROT_TEXT[id] : SPECTRAL_TEXT[id];
+        const def = CONSUMABLES[id];
+        const need = def.min ? `<p class="cur">Selecciona ${def.min === def.max ? def.min : `${def.min}-${def.max}`} carta(s) de tu mano</p>` : '';
+        return { img: consumableArt(id, kind), edClass, tip: `<b>${t.name}</b><span class="rar r-${kind}">${kind === 'tarot' ? 'Tarot' : 'Spectral'}</span><p>${t.desc}</p>${need}${edText}` };
+      }
+      default: {
+        const c = card!;
+        const extras = [
+          c.enhancement && `<p class="ed">${ENHANCEMENT_TEXT[c.enhancement].name}: ${ENHANCEMENT_TEXT[c.enhancement].desc}</p>`,
+          c.seal && `<p class="ed">${SEAL_TEXT[c.seal].name}: ${SEAL_TEXT[c.seal].desc}</p>`,
+          c.edition && `<p class="ed">${EDITION_TEXT[c.edition].name}: ${EDITION_TEXT[c.edition].desc}</p>`,
+        ].filter(Boolean).join('');
+        return {
+          img: cardFaceUrl({ id: -1, ...c }), edClass: '',
+          tip: `<b>${rankLabel(c.rank)} de ${SUIT_NAME[c.suit]}</b><span class="rar r-planet">Carta</span><p>Se añade a tu mazo</p>${extras}`,
+        };
+      }
     }
-    const hand = PLANET_BY_ID[item.id].hand;
-    const lvl = this.run.levels[hand] ?? 1;
-    const a = handStats(hand, lvl);
-    const b = handStats(hand, lvl + 1);
-    const tip = `<b>${PLANET_TEXT[item.id]}</b><span class="rar r-planet">Planeta</span><p>${HAND_NAME[hand]}: Nv.${lvl} → Nv.${lvl + 1}</p><p>+${b.chips - a.chips} Fichas, +${b.mult - a.mult} Mult</p>`;
-    return { ok: true, html: `<div class="icard"><img src="${planetArt(item.id)}" draggable="false"/><div class="tip">${tip}</div></div>` };
+  }
+
+  private itemCard(item: ShopItem): string {
+    const d = this.describe(item.kind, item.id, item.edition, item.card);
+    return `<div class="icard ${d.edClass}"><img src="${d.img}" draggable="false"/><i class="fx"></i><div class="tip">${d.tip}</div></div>`;
+  }
+
+  private noRoom(item: ShopItem): boolean {
+    const r = this.run;
+    if (item.kind === 'joker') return r.jokers.length >= r.jokerSlots && item.edition !== 'negative';
+    if (item.kind === 'card') return false;
+    return r.consumableSpace() <= 0;
+  }
+
+  private packName(kind: PackKind, size: PackSize): string {
+    return `Pack ${PACK_SIZE_NAME[size]}${PACK_KIND_NAME[kind]}`;
   }
 
   private actionsHtml(): string {
@@ -158,22 +251,35 @@ export class GameUI {
 
   private blindSelectHtml(): string {
     const r = this.run;
+    const boss = BOSS_TEXT[r.boss.id];
+    const canReroll = r.vouchers.has('directors_cut') || r.vouchers.has('retcon');
     const cards = BLINDS.map((kind, i) => {
       const state = i < r.blindIndex ? 'done' : i === r.blindIndex ? 'current' : 'next';
       const buttons =
         state === 'current'
           ? `<button class="btn btn-blue" data-act="select">Jugar</button>${
               kind !== 'boss' ? '<button class="btn btn-orange" data-act="skip">Saltar</button>' : ''
-            }`
+            }${kind === 'boss' && canReroll ? '<button class="mini-btn" data-act="rerollboss">Relanzar Boss $10</button>' : ''}`
           : `<div class="blind-state">${state === 'done' ? '✔ Superada' : 'Pendiente'}</div>`;
+      const tag = kind !== 'boss' && state !== 'done' ? this.offeredTagLine(i) : '';
       return `<div class="blind-option ${state} blind-${kind}">
-        <div class="blind-name">${BLIND_NAME[kind]}</div>
-        <div class="stat-line">Objetivo<b>${fmt(blindTarget(r.ante, kind))}</b></div>
+        <div class="blind-name">${kind === 'boss' ? boss.name : BLIND_NAME[kind]}</div>
+        ${kind === 'boss' ? `<div class="boss-desc">${boss.desc}</div>` : ''}
+        <div class="stat-line">Objetivo<b>${fmt(blindTarget(r.ante, kind, r.boss.mult))}</b></div>
         <div class="stat-line">Recompensa<b>${'$'.repeat(BLIND_REWARD[kind])}</b></div>
+        ${tag}
         ${buttons}
       </div>`;
     }).join('');
     return `<div class="overlay"><h2>Ante ${r.ante} / ${MAX_ANTE}</h2><div class="blind-options">${cards}</div></div>`;
+  }
+
+  /** Línea con el Tag que daría saltar esa ciega (solo se conoce el de la ciega actual). */
+  private offeredTagLine(index: number): string {
+    const r = this.run;
+    if (index !== r.blindIndex || !r.offeredTag) return '';
+    const t = TAG_TEXT[r.offeredTag];
+    return `<div class="skip-tag">Saltar da: ${this.chip(r.offeredTag, 'tag', t.name, t.desc)}<span>${t.name}</span></div>`;
   }
 
   private cashoutHtml(): string {
@@ -184,42 +290,50 @@ export class GameUI {
       <div class="stat-line">Manos sobrantes (${this.run.handsLeft})<b>$${c.handsBonus}</b></div>
       <div class="stat-line">Interés<b>$${c.interest}</b></div>
       ${c.jokerBonus ? `<div class="stat-line">Jokers<b>$${c.jokerBonus}</b></div>` : ''}
+      ${c.heldBonus ? `<div class="stat-line">Cartas de oro<b>$${c.heldBonus}</b></div>` : ''}
+      ${c.tagBonus ? `<div class="stat-line">Tag Inversión<b>$${c.tagBonus}</b></div>` : ''}
       <div class="stat-line total">Total<b>$${c.total}</b></div>
       <button class="btn btn-orange" data-act="collect">Cobrar $${c.total}</button>
     </div></div>`;
   }
 
+  private priceLabel(cost: number): string {
+    return cost === 0 ? 'Gratis' : `$${cost}`;
+  }
+
   private shopHtml(): string {
     const r = this.run;
     const s = r.shop!;
-    const full = r.jokers.length >= r.jokerSlots;
     const items = s.items
       .map((it, i) => {
         if (!it) return '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>';
-        const c = this.itemCard(it);
-        const noRoom = it.kind === 'joker' && full;
+        const noRoom = this.noRoom(it);
         const dis = r.money < it.cost || noRoom;
-        return `<div class="shop-slot">${c.html}<button class="btn btn-orange price" data-act="buy" data-i="${i}" ${dis ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : '$' + it.cost}</button></div>`;
+        return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-orange price" data-act="buy" data-i="${i}" ${dis ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : this.priceLabel(it.cost)}</button></div>`;
       })
       .join('');
     const packs = s.packs
       .map((p, i) => {
         if (!p) return '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>';
-        const t = PACK_TEXT[p.kind];
-        return `<div class="shop-slot"><div class="icard"><img src="${packArt(p.kind)}" draggable="false"/><div class="tip"><b>${t.name}</b><p>${t.desc}</p></div></div>
-          <button class="btn btn-orange price" data-act="pack" data-i="${i}" ${r.money < p.cost ? 'disabled' : ''}>$${p.cost}</button></div>`;
+        const [n, picks] = PACK_SHAPE[p.kind][p.size];
+        return `<div class="shop-slot"><div class="icard"><img src="${packArt(p.kind)}" draggable="false"/><div class="tip"><b>${this.packName(p.kind, p.size)}</b><p>Elige ${picks} de ${n} ${PACK_DESC[p.kind]}</p></div></div>
+          <button class="btn btn-orange price" data-act="pack" data-i="${i}" ${r.money < p.cost ? 'disabled' : ''}>${this.priceLabel(p.cost)}</button></div>`;
       })
       .join('');
-    const v = s.voucher
-      ? `<div class="shop-slot"><div class="icard"><img src="${voucherArt(s.voucher)}" draggable="false"/><div class="tip"><b>${VOUCHER_TEXT[s.voucher].name}</b><span class="rar r-planet">Voucher</span><p>${VOUCHER_TEXT[s.voucher].desc}</p></div></div>
-         <button class="btn btn-orange price" data-act="voucher" ${r.money < VOUCHER_COST ? 'disabled' : ''}>$${VOUCHER_COST}</button></div>`
-      : '<div class="shop-slot sold"><div class="empty-slot">Sin voucher</div></div>';
+    const vouchers = s.vouchers
+      .map((v, i) =>
+        v
+          ? `<div class="shop-slot"><div class="icard"><img src="${voucherArt(v)}" draggable="false"/><div class="tip"><b>${VOUCHER_TEXT[v].name}</b><span class="rar r-planet">Voucher</span><p>${VOUCHER_TEXT[v].desc}</p></div></div>
+         <button class="btn btn-orange price" data-act="voucher" data-i="${i}" ${r.money < VOUCHER_COST ? 'disabled' : ''}>$${VOUCHER_COST}</button></div>`
+          : '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>',
+      )
+      .join('');
     return `<div class="overlay shop">
       <h2>Tienda <span class="gold">$${r.money}</span></h2>
       <div class="shop-rows">
         <div class="shop-group"><h3>Cartas</h3><div class="shop-row">${items}</div></div>
         <div class="shop-group"><h3>Packs</h3><div class="shop-row">${packs}</div></div>
-        <div class="shop-group"><h3>Voucher</h3><div class="shop-row">${v}</div></div>
+        <div class="shop-group"><h3>Voucher</h3><div class="shop-row">${vouchers}</div></div>
       </div>
       <div class="row shop-actions">
         <button class="btn btn-red" data-act="reroll" ${r.money < s.rerollCost ? 'disabled' : ''}>Relanzar $${s.rerollCost}</button>
@@ -228,19 +342,16 @@ export class GameUI {
     </div>`;
   }
 
-  private packHtml(): string {
-    const r = this.run;
-    const pack = r.openPack!;
-    const t = PACK_TEXT[pack.kind];
-    const full = r.jokers.length >= r.jokerSlots;
+  private packHtml(pack: OpenPack): string {
     const cards = pack.choices
       .map((it, i) => {
-        const c = this.itemCard(it);
-        const noRoom = it.kind === 'joker' && full;
-        return `<div class="shop-slot">${c.html}<button class="btn btn-blue price" data-act="pick" data-i="${i}" ${noRoom ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : 'Elegir'}</button></div>`;
+        const noRoom = this.noRoom(it);
+        return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-blue price" data-act="pick" data-i="${i}" ${noRoom ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : 'Elegir'}</button></div>`;
       })
       .join('');
-    return `<div class="overlay shop"><h2>${t.name}</h2><div class="shop-row">${cards}</div>
+    return `<div class="overlay shop"><h2>${this.packName(pack.kind, pack.size)}</h2>
+      <p class="pack-hint">Elige ${pack.picksLeft} · los Tarots y Spectrals van a tus consumibles</p>
+      <div class="shop-row">${cards}</div>
       <button class="btn btn-red skip-pack" data-act="skippack">Saltar</button></div>`;
   }
 
@@ -302,40 +413,69 @@ export class GameUI {
     });
   }
 
+  private toast(msg: string) {
+    const el = this.root.querySelector<HTMLElement>('#toast');
+    if (!el) return;
+    el.textContent = MSG_TEXT[msg] ?? msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
   private act(el: HTMLElement) {
     const a = el.dataset.act!;
     const r = this.run;
     const i = Number(el.dataset.i);
+    const uid = Number(el.dataset.uid);
     if (a === 'hands') {
       this.showHands = !this.showHands;
       return this.refresh();
     }
     if (this.busy) return;
+    let note: string | null = null;
     try {
       switch (a) {
         case 'exit': return this.cb.onExit();
         case 'restart': return this.cb.onRestart();
         case 'select': r.selectBlind(); this.table.sync(); break;
         case 'skip': r.skipBlind(); break;
+        case 'rerollboss': r.rerollBoss(); break;
         case 'collect': r.collectCashout(); break;
         case 'buy': r.buy(i); break;
         case 'pack': r.buyPack(i); break;
         case 'pick': r.pickFromPack(i); break;
         case 'skippack': r.skipPack(); break;
-        case 'voucher': r.buyVoucher(); break;
+        case 'voucher': r.buyVoucher(i); break;
         case 'reroll': r.reroll(); break;
         case 'leave': r.leaveShop(); break;
-        case 'joker': this.selJoker = this.selJoker === Number(el.dataset.uid) ? null : Number(el.dataset.uid); break;
-        case 'sell': r.sellJoker(Number(el.dataset.uid)); this.selJoker = null; break;
+        case 'joker': this.selJoker = this.selJoker === uid ? null : uid; break;
+        case 'sell': r.sellJoker(uid); this.selJoker = null; break;
+        case 'cons': this.selCons = this.selCons === uid ? null : uid; break;
+        case 'sellcons': r.sellConsumable(uid); this.selCons = null; break;
+        case 'use': {
+          const inst = r.consumables.find((c) => c.uid === uid)!;
+          const needsCards = CONSUMABLES[inst.id].min > 0;
+          r.useConsumable(uid, needsCards ? this.table.selectedCards().map((c) => c.id) : []);
+          this.selCons = null;
+          this.table.clearSelection();
+          this.table.sync();
+          note = r.message;
+          break;
+        }
         case 'sort-rank': r.sortHand('rank'); this.table.sync(); return;
         case 'sort-suit': r.sortHand('suit'); this.table.sync(); return;
         case 'play': return void this.play();
         case 'discard': return this.discard();
       }
     } catch (err) {
-      console.warn(err);
+      this.refresh();
+      this.toast(err instanceof Error ? err.message : String(err));
+      return;
     }
     this.refresh();
+    if (note) this.toast(note);
   }
 
   // ---------------------------------------------------------------- jugar
@@ -343,6 +483,8 @@ export class GameUI {
   private async play() {
     const cards = this.table.selectedCards();
     if (!cards.length) return;
+    const err = this.run.playError(cards);
+    if (err) return this.toast(err);
     this.busy = true;
     this.table.enabled = false;
     this.disableActions(true);
@@ -357,6 +499,8 @@ export class GameUI {
     if (this.disposed) return;
     this.shownScore = prevScore;
     await this.countUp(this.run.score);
+    this.setText('money', `$${this.run.money}`);
+    if (res.score.destroyed.length) this.toast('¡Se ha roto una carta de cristal!');
     await sleep(500);
     if (this.disposed) return;
     this.busy = false;
@@ -374,9 +518,14 @@ export class GameUI {
         await sleep(450 * speed);
         continue;
       }
+      if (e.type === 'money') {
+        this.floatAt('#money', `+$${e.value}`, 'money');
+        await sleep(300 * speed);
+        continue;
+      }
       this.bump(e.type === 'chips' ? 'pv-chips' : 'pv-mult');
-      if (e.source.kind !== 'card') this.popJoker(e);
-      await sleep((e.source.kind === 'card' ? 130 : 420) * speed);
+      if (e.source.kind === 'joker' || e.source.kind === 'edition' || e.source.kind === 'held') this.popJoker(e);
+      await sleep((e.source.kind === 'card' || e.source.kind === 'planet' ? 130 : 420) * speed);
     }
     await sleep(250);
   }
@@ -387,13 +536,25 @@ export class GameUI {
     el.classList.remove('pop');
     void el.offsetWidth;
     el.classList.add('pop');
-    const label = document.createElement('div');
     const v = Number.isInteger(e.value) ? e.value : e.value.toFixed(1).replace('.', ',');
-    label.className = `float ${e.type}`;
-    label.textContent = e.type === 'chips' ? `+${v} Fichas` : e.type === 'mult' ? `+${v} Mult` : `×${v} Mult`;
+    const text = e.type === 'chips' ? `+${v} Fichas` : e.type === 'mult' ? `+${v} Mult` : `×${v} Mult`;
     const rect = el.getBoundingClientRect();
-    label.style.left = `${rect.left + rect.width / 2}px`;
-    label.style.top = `${rect.bottom - 8}px`;
+    this.floatLabel(text, e.type, rect.left + rect.width / 2, rect.bottom - 8);
+  }
+
+  private floatAt(selector: string, text: string, cls: string) {
+    const el = this.root.querySelector<HTMLElement>(selector);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    this.floatLabel(text, cls, rect.left + rect.width / 2, rect.top);
+  }
+
+  private floatLabel(text: string, cls: string, x: number, y: number) {
+    const label = document.createElement('div');
+    label.className = `float ${cls}`;
+    label.textContent = text;
+    label.style.left = `${x}px`;
+    label.style.top = `${y}px`;
     this.root.appendChild(label);
     setTimeout(() => label.remove(), 1000);
   }
@@ -433,13 +594,21 @@ export class GameUI {
   private updatePreview() {
     if (this.busy) return;
     const sel = this.table.selectedCards();
-    if (sel.length) {
-      // La vista previa es la puntuación base (sin jokers), como en el juego original.
+    this.playErr = sel.length ? this.run.playError(sel) : null;
+    if (this.playErr) {
+      this.setPreview(MSG_TEXT[this.playErr] ?? this.playErr, 0, 0);
+    } else if (sel.length) {
+      // La vista previa es la puntuación base + cartas (sin jokers), como en el juego original.
       const res = this.run.preview(sel);
       const first = res.events[0];
       let chips = first.chips;
-      for (const e of res.events) if (e.type === 'chips' && e.source.kind === 'card') chips += e.value;
-      this.setPreview(HAND_NAME[res.hand], chips, first.mult);
+      let mult = first.mult;
+      for (const e of res.events) {
+        if (e.type === 'hand' || e.source.kind !== 'card') continue;
+        if (e.type === 'chips') chips += e.value;
+        else if (e.type === 'mult') mult += e.value;
+      }
+      this.setPreview(HAND_NAME[res.hand], chips, mult);
     } else this.setPreview('', 0, 0);
     this.disableActions(false);
   }
@@ -448,12 +617,12 @@ export class GameUI {
     const n = this.table.selectedCards().length;
     const play = this.root.querySelector<HTMLButtonElement>('#btn-play');
     const disc = this.root.querySelector<HTMLButtonElement>('#btn-discard');
-    if (play) play.disabled = forceOff || n === 0 || this.run.handsLeft <= 0;
+    if (play) play.disabled = forceOff || n === 0 || this.run.handsLeft <= 0 || !!this.playErr;
     if (disc) disc.disabled = forceOff || n === 0 || this.run.discardsLeft <= 0;
   }
 
   private setPreview(name: string, chips: number, mult: number) {
-    this.setText('pv-name', name || ' ');
+    this.setText('pv-name', name || ' ');
     this.setText('pv-chips', String(Math.round(chips)));
     this.setText('pv-mult', Number.isInteger(mult) ? String(mult) : mult.toFixed(1).replace('.', ','));
   }
@@ -471,4 +640,3 @@ export class GameUI {
     if (el) el.textContent = v;
   }
 }
-

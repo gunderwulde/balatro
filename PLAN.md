@@ -45,11 +45,11 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - **Entregable:** run completa 8 antes con jokers, tienda y planets.
 
 ## Fase 5 — Bosses, consumibles, packs (4–6 días)
-- [ ] 8+ Boss Blinds con sus modificadores (incl. un finisher); debuff visual de cartas.
-- [ ] Tarots (~10→22), Spectrals, Booster Packs con selección.
-- [ ] Enhancements y Seals en carta + sus efectos de scoring.
-- [ ] Tags y skip de ciegas.
-- [ ] Vouchers (lista completa por pares).
+- [x] 8+ Boss Blinds con sus modificadores (incl. un finisher); debuff visual de cartas. (19 bosses + 4 finalistas)
+- [x] Tarots (22), Spectrals (18), Booster Packs de los 5 tipos × 3 tamaños con selección múltiple (Mega).
+- [x] Enhancements y Seals en carta + sus efectos de scoring.
+- [x] Tags y skip de ciegas (22 tags).
+- [x] Vouchers (32, en 16 pares).
 - **Entregable:** loop de run completo equivalente al juego base (contenido parcial).
 
 ## Fase 6 — Mazos, Stakes y meta (3–4 días)
@@ -92,5 +92,13 @@ Ejecutar **Fase 0**. Preguntas para desbloquear antes de la Fase 2: ¿dispones d
 
 ## Notas de implementación (Fase 4)
 - Jokers/tienda se dibujan en **DOM** con arte procedural (`render/itemArt.ts`) y ediciones por CSS. Si se quiere shader real (Three.js) para las ediciones, mover los jokers a la escena 3D es tarea futura.
-- Planetas se **consumen al comprar** (no hay slots de consumible hasta la Fase 5).
+- (Superado en Fase 5) Los Planetas ya van a los slots de consumible.
 - Probabilidades de edición **aumentadas** en `core/shop.ts` (`EDITION_ODDS`) para poder verlas; ⚠ ajustar al balance oficial.
+
+## Notas de implementación (Fase 5)
+- Nuevos módulos de core: `bosses.ts`, `consumables.ts`, `effects.ts` (efectos de Tarot/Spectral sobre un `EffectHost`), `tags.ts`, `vouchers.ts`; `shop.ts` y `run.ts` reescritos. `scoring.ts` entiende enhancements, sellos, ediciones de carta, debuff, Flint, joker anulado y azar inyectado (la vista previa nunca consume azar).
+- Los Tarots/Spectrals de un pack **van a los slots de consumible** y se usan después (no se usan al instante como en el juego original, porque en la tienda no hay mano).
+- Bosses omitidos (cartas boca abajo): The House, The Wheel, The Fish, The Mark; también Cerulean Bell. Solo 2 jokers legendarios.
+- Los Tags que dan packs/jokers gratis se aplican al abrir la siguiente tienda; Boss reroll por Tag es inmediato.
+- Ediciones de carta (Foil/Holo/Poly) y enhancements/sellos se pintan en el canvas de la carta (estáticos); el shader animado queda para la Fase 8.
+- Valores y textos siguen marcados ⚠ verificar (GDD).

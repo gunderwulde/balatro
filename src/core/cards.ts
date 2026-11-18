@@ -6,10 +6,20 @@ export const SUITS: Suit[] = ['S', 'H', 'D', 'C'];
 export type Rank = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
 export const RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
+export type Enhancement = 'bonus' | 'mult' | 'wild' | 'glass' | 'steel' | 'stone' | 'gold' | 'lucky';
+export const ENHANCEMENTS: Enhancement[] = ['bonus', 'mult', 'wild', 'glass', 'steel', 'stone', 'gold', 'lucky'];
+export type Seal = 'gold' | 'red' | 'blue' | 'purple';
+export const SEALS: Seal[] = ['gold', 'red', 'blue', 'purple'];
+/** Ediciones de carta de juego (Negativa solo existe en jokers/consumibles). */
+export type CardEdition = 'foil' | 'holo' | 'poly';
+
 export interface Card {
   id: number;
   rank: Rank;
   suit: Suit;
+  enhancement?: Enhancement;
+  seal?: Seal;
+  edition?: CardEdition;
 }
 
 export function rankLabel(r: Rank): string {
@@ -20,6 +30,20 @@ export function rankLabel(r: Rank): string {
 /** Chips por carta: 2-10 valor, figuras 10, As 11. */
 export function chipValue(r: Rank): number {
   return r === 14 ? 11 : r >= 11 ? 10 : r;
+}
+
+export const isStone = (c: Card) => c.enhancement === 'stone';
+export const isFaceCard = (c: Card) => !isStone(c) && c.rank >= 11 && c.rank <= 13;
+
+/** Las cartas Wild cuentan como todos los palos; Stone no tiene palo. */
+export function cardIsSuit(c: Card, suit: Suit): boolean {
+  if (isStone(c)) return false;
+  return c.enhancement === 'wild' || c.suit === suit;
+}
+
+/** Fichas por rango de la carta (Stone no tiene rango). */
+export function cardChips(c: Card): number {
+  return isStone(c) ? 0 : chipValue(c.rank);
 }
 
 export function createDeck(): Card[] {

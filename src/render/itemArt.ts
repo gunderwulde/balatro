@@ -1,5 +1,7 @@
 import { hashSeed } from '../core/rng';
 import type { Rarity } from '../core/jokers';
+import type { ConsumableKind } from '../core/consumables';
+import type { PackKind } from '../core/shop';
 import { CARD_H, CARD_W } from './cardArt';
 
 /** Arte procedural (pixel-art 71x95) para jokers, planetas, packs y vouchers. */
@@ -10,6 +12,7 @@ const RARITY_BG: Record<Rarity, [string, string]> = {
   common: ['#5b8fd9', '#3b66ad'],
   uncommon: ['#4fae7b', '#2f7a5b'],
   rare: ['#d9605a', '#a23a35'],
+  legendary: ['#a56bd9', '#6b3a9e'],
 };
 
 const urlCache = new Map<string, string>();
@@ -168,12 +171,12 @@ export function planetArt(id: string): string {
 }
 
 /** Sobre de refuerzo. */
-export function packArt(kind: 'celestial' | 'buffoon'): string {
+export function packArt(kind: PackKind): string {
   const key = `k:${kind}`;
   const hit = urlCache.get(key);
   if (hit) return hit;
   const [cv, ctx] = canvas();
-  const [a, b] = kind === 'celestial' ? ['#3a4a9b', '#2a3470'] : ['#c9553b', '#8f3724'];
+  const [a, b] = PACK_COLORS[kind];
   frame(ctx, a, b);
   ctx.fillStyle = INK;
   ctx.fillRect(3, 3, CARD_W - 6, 8);
@@ -198,13 +201,37 @@ export function packArt(kind: 'celestial' | 'buffoon'): string {
     ctx.fillRect(30, 44, 11, 7);
     ctx.fillStyle = '#ffd45e';
     ctx.fillRect(28, 47, 15, 2);
-  } else {
+  } else if (kind === 'buffoon') {
     ctx.fillRect(28, 40, 15, 4);
     ctx.fillRect(31, 36, 9, 5);
     ctx.fillStyle = INK;
     ctx.fillRect(31, 47, 3, 3);
     ctx.fillRect(38, 47, 3, 3);
     ctx.fillRect(32, 53, 8, 2);
+  } else if (kind === 'arcana') {
+    // ojo
+    ctx.fillRect(26, 44, 19, 6);
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(31, 45, 9, 4);
+    ctx.fillStyle = INK;
+    ctx.fillRect(34, 44, 3, 6);
+  } else if (kind === 'spectral') {
+    // fantasma
+    ctx.fillRect(29, 38, 13, 16);
+    ctx.fillRect(27, 42, 17, 12);
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(32, 43, 2, 3);
+    ctx.fillRect(38, 43, 2, 3);
+    ctx.fillRect(29, 52, 3, 2);
+    ctx.fillRect(34, 52, 3, 2);
+    ctx.fillRect(39, 52, 3, 2);
+  } else {
+    // carta estándar con pica
+    ctx.fillRect(28, 38, 15, 19);
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(34, 42, 3, 3);
+    ctx.fillRect(32, 45, 7, 4);
+    ctx.fillRect(34, 49, 3, 4);
   }
   corners(ctx);
   const url = cv.toDataURL();
@@ -232,6 +259,82 @@ export function voucherArt(id: string): string {
   ctx.fillStyle = INK;
   ctx.fillRect(18, 71, CARD_W - 36, 2);
   corners(ctx);
+  const url = cv.toDataURL();
+  urlCache.set(key, url);
+  return url;
+}
+
+const PACK_COLORS: Record<PackKind, [string, string]> = {
+  arcana: ['#7a4cb5', '#573680'],
+  celestial: ['#3a4a9b', '#2a3470'],
+  spectral: ['#2f9c97', '#1f6e6a'],
+  standard: ['#b8322f', '#8f2422'],
+  buffoon: ['#c9553b', '#8f3724'],
+};
+
+/** Tarot (púrpura con símbolo) o Spectral (turquesa con espectro); los Planetas reutilizan `planetArt`. */
+export function consumableArt(id: string, kind: ConsumableKind): string {
+  if (kind === 'planet') return planetArt(id);
+  const key = `c:${id}`;
+  const hit = urlCache.get(key);
+  if (hit) return hit;
+  const [cv, ctx] = canvas();
+  const spectral = kind === 'spectral';
+  frame(ctx, spectral ? '#3aa6a0' : '#8a5ac8', spectral ? '#2a817c' : '#6a3fa0');
+  const rnd = mulberry(hashSeed('cons' + id));
+  // marco interior
+  ctx.fillStyle = INK;
+  ctx.fillRect(8, 8, CARD_W - 16, CARD_H - 16);
+  ctx.fillStyle = spectral ? '#16393a' : '#2a1647';
+  ctx.fillRect(9, 9, CARD_W - 18, CARD_H - 18);
+  // símbolo generado: simétrico en horizontal
+  const hue = Math.floor(rnd() * 360);
+  const half = 11;
+  for (let y = 0; y < 24; y++) {
+    for (let x = 0; x < half; x++) {
+      const d = Math.hypot(x, y - 12) / 12;
+      if (rnd() < 0.62 - d * 0.5) {
+        ctx.fillStyle = `hsl(${hue} 70% ${45 + Math.floor(rnd() * 25)}%)`;
+        ctx.fillRect(35 + x, 34 + y, 1, 1);
+        ctx.fillRect(34 - x, 34 + y, 1, 1);
+      }
+    }
+  }
+  ctx.fillStyle = spectral ? '#bff4ef' : '#f2c230';
+  ctx.fillRect(13, 13, CARD_W - 26, 2);
+  ctx.fillRect(13, CARD_H - 15, CARD_W - 26, 2);
+  corners(ctx);
+  const url = cv.toDataURL();
+  urlCache.set(key, url);
+  return url;
+}
+
+/** Ficha circular 34x34 para Tags y Boss Blinds. */
+export function chipArt(id: string, kind: 'tag' | 'boss'): string {
+  const key = `t:${kind}:${id}`;
+  const hit = urlCache.get(key);
+  if (hit) return hit;
+  const cv = document.createElement('canvas');
+  cv.width = 34;
+  cv.height = 34;
+  const ctx = cv.getContext('2d')!;
+  const rnd = mulberry(hashSeed(kind + id));
+  const hue = Math.floor(rnd() * 360);
+  const r = 16;
+  for (let y = -r; y <= r; y++)
+    for (let x = -r; x <= r; x++) {
+      const d = Math.hypot(x, y);
+      if (d > r) continue;
+      ctx.fillStyle = d > r - 1.5 ? INK : d > r - 4 ? PAPER : `hsl(${hue} ${kind === 'boss' ? 45 : 65}% ${kind === 'boss' ? 38 : 55}%)`;
+      ctx.fillRect(17 + x, 17 + y, 1, 1);
+    }
+  ctx.fillStyle = INK;
+  for (let i = 0; i < 9; i++) {
+    const x = 11 + Math.floor(rnd() * 6);
+    const y = 11 + Math.floor(rnd() * 12);
+    ctx.fillRect(x, y, 2, 2);
+    ctx.fillRect(33 - x - 1, y, 2, 2);
+  }
   const url = cv.toDataURL();
   urlCache.set(key, url);
   return url;

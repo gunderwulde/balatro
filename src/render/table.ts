@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Card } from '../core/cards';
 import type { Run } from '../core/run';
-import { backTexture, CARD_H, CARD_W, faceTexture } from './cardArt';
+import { backTexture, CARD_H, CARD_W, cardKey, faceTexture } from './cardArt';
 
 export const CW = CARD_W / 32;
 export const CH = CARD_H / 32;
@@ -27,6 +27,7 @@ class Spring {
 
 interface CardObj {
   card: Card;
+  key: string;
   group: THREE.Group;
   selected: boolean;
   hover: number;
@@ -151,13 +152,23 @@ export class Table {
     const known = new Map(this.objs.map((o) => [o.card.id, o]));
     this.objs = this.run.hand.map((card) => {
       const existing = known.get(card.id);
-      if (existing) return existing;
+      if (existing) {
+        const key = cardKey(card);
+        if (existing.key !== key) {
+          // La carta cambió (enhancement, sello, edición, rango…): refresca su cara.
+          const mat = (existing.group.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
+          mat.map = faceTexture(card);
+          mat.needsUpdate = true;
+          existing.key = key;
+        }
+        return existing;
+      }
       const group = makeCardMesh(card);
       group.position.copy(this.pilePos);
       group.rotation.y = Math.PI;
       this.root.add(group);
       return {
-        card, group, selected: false, hover: 0, base: new THREE.Vector3(), baseRot: 0,
+        card, key: cardKey(card), group, selected: false, hover: 0, base: new THREE.Vector3(), baseRot: 0,
         sp: { x: new Spring(), y: new Spring(), z: new Spring(), rx: new Spring(), ry: new Spring(), rz: new Spring() },
       };
     });
@@ -266,6 +277,10 @@ export class Table {
       const isHover = o === this.hovered;
       o.hover += ((isHover ? 1 : 0) - o.hover) * 0.2;
       const g = o.group;
+      // Cartas debilitadas por un Boss: oscurecidas.
+      const front = (g.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      const dim = this.run.isDebuffed(o.card) ? 0.35 : 1;
+      if (front.color.r !== dim) front.color.setScalar(dim);
 
       let tx = o.base.x;
       let ty = o.base.y + (o.selected ? 0.9 : 0) + o.hover * 0.35;

@@ -1,7 +1,7 @@
-import type { Card, Rank, Suit } from './cards';
+import { cardIsSuit, isFaceCard, isStone, type Card, type Rank, type Suit } from './cards';
 import { containsHand, type HandType } from './hands';
 
-export type Rarity = 'common' | 'uncommon' | 'rare';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 export type Edition = 'foil' | 'holo' | 'poly' | 'negative';
 
 export interface Effect {
@@ -46,15 +46,17 @@ export interface JokerDef {
   onDiscard?(j: JokerInstance): void;
   roundEndMoney?(j: JokerInstance): number;
   passive?: { handSize?: number; hands?: number; discards?: number };
+  /** Anula el efecto del Boss Blind (Chicot). */
+  disablesBoss?: boolean;
 }
 
-export const isFace = (c: Card) => c.rank >= 11 && c.rank <= 13;
-const inSet = (set: Rank[]) => (c: Card) => set.includes(c.rank);
+export const isFace = isFaceCard;
+const inSet = (set: Rank[]) => (c: Card) => !isStone(c) && set.includes(c.rank);
 
 // ---- Fábricas ----
 const suitMult = (id: string, suit: Suit, mult: number): JokerDef => ({
   id, rarity: 'common', cost: 5,
-  onCardScored: (_j, _c, card) => (card.suit === suit ? { mult } : undefined),
+  onCardScored: (_j, _c, card) => (cardIsSuit(card, suit) ? { mult } : undefined),
 });
 const handMult = (id: string, type: HandType, mult: number, cost: number): JokerDef => ({
   id, rarity: 'common', cost,
@@ -96,7 +98,7 @@ export const JOKER_LIST: JokerDef[] = [
   { id: 'scary_face', rarity: 'common', cost: 4, onCardScored: (_j, _c, card) => (isFace(card) ? { chips: 30 } : undefined) },
   { id: 'even_steven', rarity: 'common', cost: 4, onCardScored: (_j, _c, card) => (inSet(EVEN)(card) ? { mult: 4 } : undefined) },
   { id: 'odd_todd', rarity: 'common', cost: 4, onCardScored: (_j, _c, card) => (inSet(ODD)(card) ? { chips: 31 } : undefined) },
-  { id: 'scholar', rarity: 'common', cost: 4, onCardScored: (_j, _c, card) => (card.rank === 14 ? { chips: 20, mult: 4 } : undefined) },
+  { id: 'scholar', rarity: 'common', cost: 4, onCardScored: (_j, _c, card) => (card.rank === 14 && !isStone(card) ? { chips: 20, mult: 4 } : undefined) },
   { id: 'fibonacci', rarity: 'uncommon', cost: 8, onCardScored: (_j, _c, card) => (inSet(FIB)(card) ? { mult: 8 } : undefined) },
   { id: 'abstract_joker', rarity: 'common', cost: 4, onScore: (_j, c) => ({ mult: 3 * c.jokerCount }) },
   { id: 'golden_joker', rarity: 'common', cost: 6, roundEndMoney: () => 4 },
@@ -127,9 +129,14 @@ export const JOKER_LIST: JokerDef[] = [
   { id: 'acrobat', rarity: 'uncommon', cost: 6, onScore: (_j, c) => (c.handsLeft === 1 ? { xmult: 3 } : undefined) },
   {
     id: 'blackboard', rarity: 'uncommon', cost: 6,
-    onScore: (_j, c) => (c.held.every((h) => h.suit === 'S' || h.suit === 'C') ? { xmult: 3 } : undefined),
+    onScore: (_j, c) => (c.held.every((h) => cardIsSuit(h, 'S') || cardIsSuit(h, 'C')) ? { xmult: 3 } : undefined),
   },
   { id: 'baron', rarity: 'rare', cost: 8, onHeld: (_j, _c, card) => (card.rank === 13 ? { xmult: 1.5 } : undefined) },
+  {
+    id: 'triboulet', rarity: 'legendary', cost: 20,
+    onCardScored: (_j, _c, card) => (!isStone(card) && (card.rank === 12 || card.rank === 13) ? { xmult: 2 } : undefined),
+  },
+  { id: 'chicot', rarity: 'legendary', cost: 20, disablesBoss: true },
   { id: 'bull', rarity: 'uncommon', cost: 6, onScore: (_j, c) => ({ chips: 2 * Math.max(0, c.money) }) },
 ];
 

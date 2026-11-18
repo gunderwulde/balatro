@@ -43,6 +43,8 @@ export const JOKER_TEXT: Record<string, Text> = {
   acrobat: { name: 'Acróbata', desc: '×3 Mult en la última mano de la ronda' },
   blackboard: { name: 'Pizarra', desc: '×3 Mult si todas las cartas en mano son ♠ o ♣' },
   baron: { name: 'Barón', desc: 'Cada Rey en tu mano da ×1,5 Mult' },
+  triboulet: { name: 'Triboulet', desc: 'Cada Rey o Reina que puntúa da ×2 Mult' },
+  chicot: { name: 'Chicot', desc: 'Anula el efecto de todos los Boss Blinds' },
   bull: { name: 'Toro', desc: '+2 Fichas por cada $1 que tengas' },
 };
 
@@ -59,14 +61,3 @@ export const EDITION_TEXT: Record<Edition, { name: string; desc: string }> = {
   negative: { name: 'Negativa', desc: '+1 espacio de Joker' },
 };
 
-export const VOUCHER_TEXT: Record<string, Text> = {
-  overstock: { name: 'Excedentes', desc: '+1 casilla de carta en la tienda' },
-  grabber: { name: 'Agarrador', desc: '+1 mano por ronda' },
-  wasteful: { name: 'Derrochador', desc: '+1 descarte por ronda' },
-  seed_money: { name: 'Capital Semilla', desc: 'El interés máximo sube a $10' },
-};
-
-export const PACK_TEXT = {
-  celestial: { name: 'Pack Celestial', desc: 'Elige 1 de 3 Planetas' },
-  buffoon: { name: 'Pack de Bufones', desc: 'Elige 1 de 2 Jokers' },
-} as const;

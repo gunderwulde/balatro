@@ -308,3 +308,38 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 .sort-btns { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
 .actions { width: min(560px, 80vw); }
 .actions .btn { flex: 1; }
+
+/* ===== Fase 5: consumibles, tags, bosses ===== */
+.jokers-bar { right: calc(24px + 3 * (71px * 1.35 + 10px)); }
+.cons-bar {
+  position: absolute; top: 12px; right: 12px; z-index: 6; pointer-events: none;
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+}
+.cons-bar .jokers-head { justify-content: flex-end; }
+.cons-bar .jokers-row { flex-wrap: nowrap; justify-content: flex-end; }
+.cons-bar .tip { left: auto; right: 0; transform: none; }
+.mini-btn.alt { background: var(--red); box-shadow: 0 3px 0 var(--red-d), 0 3px 0 3px var(--ink); }
+.r-tarot { background: #6a3fa0; } .r-spectral { background: #237a76; } .r-legendary { background: #7a2fc4; }
+.boss-desc { font-size: 13px; line-height: 1.25; opacity: .9; margin-bottom: 6px; }
+.boss-desc.off { text-decoration: line-through; opacity: .5; }
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { position: relative; display: inline-flex; cursor: help; pointer-events: auto; }
+.chip img { width: 34px; height: 34px; image-rendering: pixelated; display: block; }
+.chip:hover .tip { display: block; top: calc(100% + 6px); left: 0; transform: none; }
+.skip-tag { display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: .95; }
+.disabled-joker img { filter: grayscale(1) brightness(.55); }
+.pack-hint { margin: 0; opacity: .8; font-size: 15px; }
+.float.money { background: #b8860b; }
+.toast {
+  position: absolute; left: 50%; top: 26%; transform: translateX(-50%); z-index: 60; pointer-events: none;
+  background: var(--paper); color: var(--ink); text-shadow: none; font-weight: 700; font-size: clamp(14px, 2vw, 18px);
+  border: 3px solid var(--ink); border-radius: 8px; padding: 8px 16px; opacity: 0; transition: opacity .2s; max-width: 80vw; text-align: center;
+}
+.toast.show { opacity: 1; }
+@media (max-width: 1100px) {
+  .jokers-bar { right: 12px; }
+  .cons-bar { top: auto; bottom: 12px; }
+  .cons-bar .jokers-row { min-height: 0; }
+  .cons-bar .icard { --s: 0.9; }
+  .cons-bar .tip { top: auto; bottom: calc(100% + 8px); }
+}
