@@ -1,0 +1,226 @@
+import * as THREE from 'three';
+import { rankLabel, type Card, type Suit } from '../core/cards';
+
+/** Arte procedural pixel-art (71x95) generado en canvas. Sin assets externos. */
+export const CARD_W = 71;
+export const CARD_H = 95;
+
+const PAPER = '#f4efe3';
+const SHADE = '#d8d0bd';
+const INK = '#1a1a22';
+export const SUIT_COLOR: Record<Suit, string> = {
+  S: '#2b3a67',
+  H: '#e0413a',
+  D: '#e8892b',
+  C: '#2f7a5b',
+};
+
+const SUIT_BITMAP: Record<Suit, string[]> = {
+  H: ['.XX...XX.', 'XXXX.XXXX', 'XXXXXXXXX', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'],
+  D: ['....X....', '...XXX...', '..XXXXX..', '.XXXXXXX.', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'],
+  S: ['....X....', '...XXX...', '..XXXXX..', '.XXXXXXX.', 'XXXXXXXXX', 'XXXXXXXXX', '.XX.X.XX.', '....X....', '...XXX...'],
+  C: ['...XXX...', '..XXXXX..', '...XXX...', '.XX.X.XX.', 'XXXXXXXXX', 'XXXXXXXXX', '.XX.X.XX.', '....X....', '...XXX...'],
+};
+
+const GLYPH: Record<string, string[]> = {
+  '0': ['XXX', 'X.X', 'X.X', 'X.X', 'XXX'],
+  '1': ['.X.', 'XX.', '.X.', '.X.', 'XXX'],
+  '2': ['XXX', '..X', 'XXX', 'X..', 'XXX'],
+  '3': ['XXX', '..X', 'XXX', '..X', 'XXX'],
+  '4': ['X.X', 'X.X', 'XXX', '..X', '..X'],
+  '5': ['XXX', 'X..', 'XXX', '..X', 'XXX'],
+  '6': ['XXX', 'X..', 'XXX', 'X.X', 'XXX'],
+  '7': ['XXX', '..X', '.X.', '.X.', '.X.'],
+  '8': ['XXX', 'X.X', 'XXX', 'X.X', 'XXX'],
+  '9': ['XXX', 'X.X', 'XXX', '..X', 'XXX'],
+  J: ['..X', '..X', '..X', 'X.X', 'XXX'],
+  Q: ['XXX', 'X.X', 'X.X', 'XXX', '..X'],
+  K: ['X.X', 'X.X', 'XX.', 'X.X', 'X.X'],
+  A: ['.X.', 'X.X', 'XXX', 'X.X', 'X.X'],
+};
+
+type Ctx = CanvasRenderingContext2D;
+
+function bitmap(ctx: Ctx, rows: string[], x: number, y: number, color: string, scale = 1) {
+  ctx.fillStyle = color;
+  rows.forEach((row, j) =>
+    [...row].forEach((ch, i) => {
+      if (ch === 'X') ctx.fillRect(x + i * scale, y + j * scale, scale, scale);
+    }),
+  );
+}
+
+function text(ctx: Ctx, s: string, x: number, y: number, color: string) {
+  let cx = x;
+  for (const ch of s) {
+    bitmap(ctx, GLYPH[ch], cx, y, color);
+    cx += 4;
+  }
+}
+
+function suit(ctx: Ctx, s: Suit, cx: number, cy: number, scale = 1, flip = false) {
+  const bm = SUIT_BITMAP[s];
+  const w = bm[0].length * scale;
+  const h = bm.length * scale;
+  const rows = flip ? [...bm].reverse() : bm;
+  bitmap(ctx, rows, Math.round(cx - w / 2), Math.round(cy - h / 2), SUIT_COLOR[s], scale);
+}
+
+const L = 24, C = 35, R = 47;
+const ROW = [22, 38, 54, 70];
+const PIPS: Record<number, [number, number][]> = {
+  2: [[C, ROW[0]], [C, ROW[3]]],
+  3: [[C, ROW[0]], [C, 46], [C, ROW[3]]],
+  4: [[L, ROW[0]], [R, ROW[0]], [L, ROW[3]], [R, ROW[3]]],
+  5: [[L, ROW[0]], [R, ROW[0]], [C, 46], [L, ROW[3]], [R, ROW[3]]],
+  6: [[L, ROW[0]], [R, ROW[0]], [L, 46], [R, 46], [L, ROW[3]], [R, ROW[3]]],
+  7: [[L, ROW[0]], [R, ROW[0]], [C, 34], [L, 46], [R, 46], [L, ROW[3]], [R, ROW[3]]],
+  8: [[L, ROW[0]], [R, ROW[0]], [C, 34], [L, 46], [R, 46], [C, 58], [L, ROW[3]], [R, ROW[3]]],
+  9: [[L, ROW[0]], [R, ROW[0]], [L, ROW[1] + 2], [R, ROW[1] + 2], [C, 46], [L, ROW[2] - 2], [R, ROW[2] - 2], [L, ROW[3]], [R, ROW[3]]],
+  10: [[L, ROW[0]], [R, ROW[0]], [C, 30], [L, ROW[1] + 2], [R, ROW[1] + 2], [L, ROW[2] - 2], [R, ROW[2] - 2], [C, 62], [L, ROW[3]], [R, ROW[3]]],
+};
+
+function roundCorners(ctx: Ctx) {
+  // Esquinas transparentes estilo pixel-art
+  for (const [x, y] of [[0, 0], [1, 0], [0, 1], [CARD_W - 1, 0], [CARD_W - 2, 0], [CARD_W - 1, 1],
+    [0, CARD_H - 1], [1, CARD_H - 1], [0, CARD_H - 2], [CARD_W - 1, CARD_H - 1], [CARD_W - 2, CARD_H - 1], [CARD_W - 1, CARD_H - 2]])
+    ctx.clearRect(x, y, 1, 1);
+}
+
+function face(ctx: Ctx, rank: 11 | 12 | 13, s: Suit) {
+  const col = SUIT_COLOR[s];
+  // marco y fondo
+  ctx.fillStyle = SHADE;
+  ctx.fillRect(15, 17, 41, 61);
+  ctx.fillStyle = INK;
+  ctx.strokeStyle = INK;
+  ctx.strokeRect(15.5, 17.5, 40, 60);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(16, 18, 39, 59);
+  // diagonal que separa las dos mitades (cartas de figura son simétricas)
+  for (const flip of [false, true]) {
+    ctx.save();
+    if (flip) {
+      ctx.translate(CARD_W, CARD_H);
+      ctx.scale(-1, -1);
+    }
+    // cuerpo
+    ctx.fillStyle = col;
+    ctx.fillRect(19, 56, 33, 4);
+    ctx.fillRect(21, 52, 29, 4);
+    ctx.fillStyle = '#f2c9a0'; // cara
+    ctx.fillRect(28, 38, 15, 14);
+    ctx.fillStyle = INK; // ojos
+    ctx.fillRect(31, 43, 2, 2);
+    ctx.fillRect(38, 43, 2, 2);
+    ctx.fillRect(33, 48, 5, 1);
+    // sombrero / corona
+    if (rank === 11) {
+      ctx.fillStyle = col;
+      ctx.fillRect(27, 34, 17, 5);
+      ctx.fillRect(41, 38, 6, 2);
+    } else {
+      ctx.fillStyle = '#f2c230';
+      ctx.fillRect(27, 35, 17, 4);
+      for (const x of [27, 33, 39, 42]) ctx.fillRect(x, 31, 3, 4);
+      ctx.fillStyle = col;
+      ctx.fillRect(34, 33, 3, 3);
+    }
+    if (rank === 12) {
+      ctx.fillStyle = '#7a4b22'; // melena
+      ctx.fillRect(25, 38, 3, 16);
+      ctx.fillRect(43, 38, 3, 16);
+    }
+    if (rank === 13) {
+      ctx.fillStyle = '#7a4b22'; // barba
+      ctx.fillRect(28, 49, 15, 5);
+      ctx.fillStyle = '#f2c9a0';
+      ctx.fillRect(33, 49, 5, 1);
+    }
+    ctx.restore();
+  }
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(16, 46, 39, 2);
+  ctx.fillStyle = INK;
+  ctx.fillRect(16, 47, 39, 1);
+}
+
+export function drawCardFace(card: Card): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = CARD_W;
+  cv.height = CARD_H;
+  const ctx = cv.getContext('2d')!;
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(1, 1, CARD_W - 2, CARD_H - 2);
+
+  const col = SUIT_COLOR[card.suit];
+  const label = rankLabel(card.rank);
+  const lx = label.length === 2 ? 4 : 5;
+
+  if (card.rank >= 11 && card.rank <= 13) face(ctx, card.rank as 11 | 12 | 13, card.suit);
+  else if (card.rank === 14) suit(ctx, card.suit, C + 0.5, 47, 3);
+  else for (const [x, y] of PIPS[card.rank]) suit(ctx, card.suit, x + 0.5, y, 1, y > 46);
+
+  // índices en esquinas (esquina inferior rotada 180°)
+  text(ctx, label, lx, 5, col);
+  suit(ctx, card.suit, 9, 16);
+  ctx.save();
+  ctx.translate(CARD_W, CARD_H);
+  ctx.scale(-1, -1);
+  text(ctx, label, lx, 5, col);
+  suit(ctx, card.suit, 9, 16);
+  ctx.restore();
+
+  roundCorners(ctx);
+  return cv;
+}
+
+export function drawCardBack(): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = CARD_W;
+  cv.height = CARD_H;
+  const ctx = cv.getContext('2d')!;
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(1, 1, CARD_W - 2, CARD_H - 2);
+  ctx.fillStyle = '#b8322f';
+  ctx.fillRect(4, 4, CARD_W - 8, CARD_H - 8);
+  // retícula de rombos
+  ctx.fillStyle = '#8f2422';
+  for (let y = 4; y < CARD_H - 4; y++)
+    for (let x = 4; x < CARD_W - 4; x++) if (((x + y) % 8 === 0) || ((x - y + 400) % 8 === 0)) ctx.fillRect(x, y, 1, 1);
+  // medallón central
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(25, 35, 21, 25);
+  ctx.fillStyle = '#b8322f';
+  ctx.fillRect(27, 37, 17, 21);
+  suit(ctx, 'S', 35.5, 47.5, 1);
+  roundCorners(ctx);
+  return cv;
+}
+
+const cache = new Map<string, THREE.CanvasTexture>();
+function toTexture(cv: HTMLCanvasElement): THREE.CanvasTexture {
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+export function faceTexture(card: Card): THREE.CanvasTexture {
+  const key = `${card.rank}${card.suit}`;
+  let t = cache.get(key);
+  if (!t) cache.set(key, (t = toTexture(drawCardFace(card))));
+  return t;
+}
+
+export function backTexture(): THREE.CanvasTexture {
+  let t = cache.get('back');
+  if (!t) cache.set('back', (t = toTexture(drawCardBack())));
+  return t;
+}
