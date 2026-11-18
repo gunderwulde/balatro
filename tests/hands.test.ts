@@ -41,6 +41,6 @@ describe('scoreHand', () => {
     expect(scoreHand(mk('AS AH 9D JC KS')).total).toBe(64);
   });
   it('nivel 2 mejora chips y mult', () => {
-    expect(scoreHand(mk('AS AH'), { pair: 2 }).total).toBe((25 + 22) * 3);
+    expect(scoreHand(mk('AS AH'), { levels: { pair: 2 } }).total).toBe((25 + 22) * 3);
   });
 });

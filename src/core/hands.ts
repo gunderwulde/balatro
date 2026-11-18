@@ -45,3 +45,21 @@ export function evaluateHand(cards: Card[]): HandResult {
   const high = cards.reduce((a, b) => (b.rank > a.rank ? b : a));
   return { hand: 'high_card', scoring: [high] };
 }
+
+/** ¿La mano jugada *contiene* este tipo de mano? (p. ej. un Full House contiene Pareja). */
+export function containsHand(cards: Card[], type: HandType): boolean {
+  const counts = new Map<number, number>();
+  for (const c of cards) counts.set(c.rank, (counts.get(c.rank) ?? 0) + 1);
+  const sizes = [...counts.values()].sort((a, b) => b - a);
+  const max = sizes[0] ?? 0;
+  switch (type) {
+    case 'pair': return max >= 2;
+    case 'two_pair': return sizes.filter((s) => s >= 2).length >= 2;
+    case 'three_kind': return max >= 3;
+    case 'four_kind': return max >= 4;
+    case 'full_house': return max >= 3 && sizes[1] >= 2;
+    case 'straight': return isStraight(cards);
+    case 'flush': return isFlush(cards);
+    default: return cards.length > 0 && evaluateHand(cards).hand === type;
+  }
+}

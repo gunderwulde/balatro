@@ -43,7 +43,7 @@ showcase.forEach((c, i) => {
   m.userData.k = k;
   menuCards.add(m);
 });
-menuCards.position.y = 0.4;
+menuCards.position.y = 1.0;
 scene.add(menuCards);
 
 // --- Estado ---
@@ -91,7 +91,7 @@ function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   // escala las cartas del menú para que quepan en pantallas estrechas
-  const s = Math.min(1, camera.aspect * 0.62);
+  const s = Math.min(0.8, camera.aspect * 0.5);
   menuCards.scale.setScalar(s);
   table?.layout();
 }

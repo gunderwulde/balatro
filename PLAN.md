@@ -37,11 +37,11 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - **Entregable:** jugar 3 ciegas solo con cartas (sin tienda) de principio a fin.
 
 ## Fase 4 — Jokers y tienda (4–6 días)
-- [ ] Zona de jokers: slots, reordenar, vender, tooltips.
-- [ ] Sistema de hooks de jokers; implementar ~30 jokers MVP (todas las categorías).
-- [ ] Editions (shaders Foil/Holo/Polychrome/Negative).
-- [ ] Tienda: slots, reroll, compra/venta, 2 packs, 1 voucher.
-- [ ] Planets + niveles de mano visibles (pantalla de info de manos).
+- [x] Zona de jokers (DOM): slots, reordenar arrastrando, vender, tooltips.
+- [x] Hooks de jokers + 39 jokers MVP (todas las categorías; valores a verificar).
+- [x] Ediciones de joker Foil/Holo/Policroma/Negativa (efecto CSS en DOM, no shader; ver nota).
+- [x] Tienda: 2 casillas, reroll, compra/venta, 2 packs (Celestial/Bufones), 1 voucher (4 en MVP).
+- [x] Planets + pantalla de niveles de mano.
 - **Entregable:** run completa 8 antes con jokers, tienda y planets.
 
 ## Fase 5 — Bosses, consumibles, packs (4–6 días)
@@ -89,3 +89,8 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 
 ## Siguiente acción inmediata
 Ejecutar **Fase 0**. Preguntas para desbloquear antes de la Fase 2: ¿dispones de los assets originales (sprites, sonido, fuente)? ¿HUD en DOM (recomendado)? ¿soporte móvil desde el MVP?
+
+## Notas de implementación (Fase 4)
+- Jokers/tienda se dibujan en **DOM** con arte procedural (`render/itemArt.ts`) y ediciones por CSS. Si se quiere shader real (Three.js) para las ediciones, mover los jokers a la escena 3D es tarea futura.
+- Planetas se **consumen al comprar** (no hay slots de consumible hasta la Fase 5).
+- Probabilidades de edición **aumentadas** en `core/shop.ts` (`EDITION_ODDS`) para poder verlas; ⚠ ajustar al balance oficial.

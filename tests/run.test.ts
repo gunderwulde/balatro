@@ -93,6 +93,8 @@ describe('Run', () => {
     // 3 (small) + 3 manos sobrantes + 0 interés ($4)
     expect(r.cashout).toMatchObject({ blindReward: 3, handsBonus: 3, interest: 0, total: 6 });
     r.collectCashout();
+    expect(r.phase).toBe("shop");
+    r.leaveShop();
     expect(r.money).toBe(10);
     expect(r.phase).toBe('blind_select');
     expect(r.blind).toBe('big');
@@ -110,6 +112,7 @@ describe('Run', () => {
     r.score = 10_000;
     r.play(ids(r, 1));
     r.collectCashout();
+    r.leaveShop();
     expect(r).toMatchObject({ ante: 2, blindIndex: 0, phase: 'blind_select' });
   });
 
