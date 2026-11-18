@@ -15,8 +15,8 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - [ ] `hands.ts`: detección de las 12 manos + selección de cartas que puntúan.
 - [ ] Niveles de mano (tabla GDD §5).
 - [ ] `scoring.ts`: pipeline GDD §6 con lista de eventos; orden de jokers.
-- [ ] Máquina de estados `run.ts`: Ante→Blind (Small/Big/Boss)→Play→Cashout→Shop→…; victoria/derrota; skip.
-- [ ] Economía: recompensas, interés, venta.
+- [x] Máquina de estados `run.ts` (ciegas, skip, victoria/derrota; tienda pendiente Fase 4).
+- [x] Economía: recompensas e interés (venta pendiente).
 - [ ] Tests exhaustivos (manos límite, orden de puntuación, determinismo por semilla).
 - **Entregable:** simulación headless de una run completa por consola/test con bot aleatorio.
 
@@ -29,11 +29,11 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - **Entregable:** manejar la mano con ratón y jugar/descartar con feedback visual.
 
 ## Fase 3 — Loop jugable mínimo (3–4 días)
-- [ ] HUD: marcador de ciega, objetivo, manos/descartes, $, ante/ronda, chips×mult, vista previa de mano.
-- [ ] Botones Jugar/Descartar, ordenar por rango/palo.
+- [x] HUD de la run: objetivo, puntos, manos, descartes, $, ante, vista previa de mano.
+- [x] Botones Jugar/Descartar (ordenar por rango/palo pendiente).
 - [ ] Reproducción animada de eventos de scoring (sonidos placeholder).
 - [x] Menú principal con semilla, opciones, fondo swirl (hecho).
-- [ ] Pantalla de cashout, fin de run (win/lose).
+- [x] Selección de ciega, cashout y fin de run.
 - **Entregable:** jugar 3 ciegas solo con cartas (sin tienda) de principio a fin.
 
 ## Fase 4 — Jokers y tienda (4–6 días)

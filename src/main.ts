@@ -5,7 +5,9 @@ import './ui/menu.css';
 import type { Card } from './core/cards';
 import { Background, PALETTES } from './render/background';
 import { Table, makeCardMesh } from './render/table';
-import { MainMenu } from './ui/menu';
+import { Run } from './core/run';
+import { GameUI } from './ui/gameUi';
+import { MainMenu, randomSeed } from './ui/menu';
 import type { Settings } from './ui/settings';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -47,18 +49,25 @@ scene.add(menuCards);
 // --- Estado ---
 let mode: 'menu' | 'game' = 'menu';
 let table: Table | null = null;
+let ui: GameUI | null = null;
 let reduceMotion = false;
 const pointer = new THREE.Vector2();
 addEventListener('pointermove', (e) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1));
 
+function startGame(seed: string) {
+  table?.dispose();
+  ui?.dispose();
+  menu.hide();
+  mode = 'game';
+  menuCards.visible = false;
+  bg.setPalette(PALETTES.table);
+  const run = new Run(seed);
+  table = new Table(scene, camera, renderer.domElement, run);
+  ui = new GameUI(run, table, { onExit: exitToMenu, onRestart: () => startGame(randomSeed()) });
+}
+
 const menu = new MainMenu({
-  onStart(seed) {
-    menu.hide();
-    mode = 'game';
-    menuCards.visible = false;
-    bg.setPalette(PALETTES.table);
-    table = new Table(scene, camera, renderer.domElement, seed, exitToMenu);
-  },
+  onStart: startGame,
   onSettings(s: Settings) {
     scanlines.classList.toggle('off', !s.scanlines);
     reduceMotion = s.reduceMotion;
@@ -68,7 +77,9 @@ const menu = new MainMenu({
 
 function exitToMenu() {
   table?.dispose();
+  ui?.dispose();
   table = null;
+  ui = null;
   mode = 'menu';
   menuCards.visible = true;
   bg.setPalette(PALETTES.menu);
@@ -98,7 +109,7 @@ renderer.setAnimationLoop((t) => {
       m.rotation.x += (-pointer.y * 0.3 - m.rotation.x) * 0.08;
     });
   } else {
-    table?.update(t);
+    table?.update(performance.now());
   }
   renderer.render(scene, camera);
 });

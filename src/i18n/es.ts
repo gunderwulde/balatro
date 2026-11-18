@@ -1,5 +1,11 @@
 import type { HandType } from '../core/hands';
 
+export const BLIND_NAME = {
+  small: 'Ciega pequeña',
+  big: 'Ciega grande',
+  boss: 'Jefe',
+} as const;
+
 export const HAND_NAME: Record<HandType, string> = {
   high_card: 'Carta alta',
   pair: 'Pareja',
