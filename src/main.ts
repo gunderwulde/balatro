@@ -4,6 +4,7 @@ import '@fontsource/pixelify-sans/latin-700.css';
 import './ui/menu.css';
 import type { Card } from './core/cards';
 import { Background, PALETTES } from './render/background';
+import { PostFx } from './render/crt';
 import { Table, makeCardMesh } from './render/table';
 import { Run } from './core/run';
 import { GameUI } from './ui/gameUi';
@@ -14,15 +15,14 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.style.cssText = 'margin:0;height:100%;background:#16302d;overflow:hidden';
 document.body.appendChild(renderer.domElement);
+renderer.domElement.style.touchAction = 'none';
 
-const scanlines = document.createElement('div');
-scanlines.className = 'scanlines';
-document.body.appendChild(scanlines);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
 camera.position.z = 12;
 
+const post = new PostFx(renderer, scene, camera);
 const bg = new Background(PALETTES.menu);
 scene.add(bg.mesh);
 
@@ -69,7 +69,7 @@ function startGame(seed: string) {
 const menu = new MainMenu({
   onStart: startGame,
   onSettings(s: Settings) {
-    scanlines.classList.toggle('off', !s.scanlines);
+    post.setCrt(s.scanlines);
     reduceMotion = s.reduceMotion;
     bg.speed = s.reduceMotion ? 0.15 : 1;
   },
@@ -93,6 +93,7 @@ function resize() {
   // escala las cartas del menú para que quepan en pantallas estrechas
   const s = Math.min(0.8, camera.aspect * 0.5);
   menuCards.scale.setScalar(s);
+  post.resize(innerWidth, innerHeight);
   table?.layout();
 }
 addEventListener('resize', resize);
@@ -111,5 +112,5 @@ renderer.setAnimationLoop((t) => {
   } else {
     table?.update(performance.now());
   }
-  renderer.render(scene, camera);
+  post.render();
 });

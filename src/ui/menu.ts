@@ -72,7 +72,7 @@ export class MainMenu {
         <div class="panel">
           <label class="field">Música <input type="range" min="0" max="100" value="${Math.round(s.music * 100)}" data-set="music" /></label>
           <label class="field">Efectos <input type="range" min="0" max="100" value="${Math.round(s.sfx * 100)}" data-set="sfx" /></label>
-          <label class="check"><input type="checkbox" data-set="scanlines" ${s.scanlines ? 'checked' : ''} /> Líneas CRT</label>
+          <label class="check"><input type="checkbox" data-set="scanlines" ${s.scanlines ? 'checked' : ''} /> Filtro CRT (curvatura y scanlines)</label>
           <label class="check"><input type="checkbox" data-set="reduceMotion" ${s.reduceMotion ? 'checked' : ''} /> Reducir movimiento</label>
           <div class="row"><button class="btn btn-red" data-act="back">Atrás</button></div>
         </div>`;

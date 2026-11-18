@@ -152,6 +152,7 @@ export class GameUI {
     return `<div class="actions">
       <button class="btn btn-blue" data-act="play" id="btn-play">Jugar mano</button>
       <button class="btn btn-red" data-act="discard" id="btn-discard">Descartar</button>
+      <div class="sort-btns"><button class="mini-btn" data-act="sort-rank">Rango</button><button class="mini-btn" data-act="sort-suit">Palo</button></div>
     </div>`;
   }
 
@@ -326,6 +327,8 @@ export class GameUI {
         case 'leave': r.leaveShop(); break;
         case 'joker': this.selJoker = this.selJoker === Number(el.dataset.uid) ? null : Number(el.dataset.uid); break;
         case 'sell': r.sellJoker(Number(el.dataset.uid)); this.selJoker = null; break;
+        case 'sort-rank': r.sortHand('rank'); this.table.sync(); return;
+        case 'sort-suit': r.sortHand('suit'); this.table.sync(); return;
         case 'play': return void this.play();
         case 'discard': return this.discard();
       }

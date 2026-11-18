@@ -127,3 +127,24 @@ describe('Run', () => {
     expect(r.phase).toBe('won');
   });
 });
+
+describe('orden de la mano', () => {
+  it('sortHand por rango y por palo', () => {
+    const r = new Run('SORT');
+    r.selectBlind();
+    r.sortHand('rank');
+    for (let i = 1; i < r.hand.length; i++) expect(r.hand[i - 1].rank).toBeGreaterThanOrEqual(r.hand[i].rank);
+    r.sortHand('suit');
+    const order = { S: 0, H: 1, C: 2, D: 3 } as const;
+    for (let i = 1; i < r.hand.length; i++) expect(order[r.hand[i - 1].suit]).toBeLessThanOrEqual(order[r.hand[i].suit]);
+  });
+  it('reorderHand exige las mismas cartas', () => {
+    const r = new Run('SORT');
+    r.selectBlind();
+    const ids = r.hand.map((c) => c.id).reverse();
+    r.reorderHand(ids);
+    expect(r.hand.map((c) => c.id)).toEqual(ids);
+    expect(() => r.reorderHand(ids.slice(1))).toThrow('inválido');
+    expect(() => r.reorderHand([...ids.slice(1), 999])).toThrow('inválido');
+  });
+});

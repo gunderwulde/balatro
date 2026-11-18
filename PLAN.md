@@ -21,16 +21,16 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - **Entregable:** simulación headless de una run completa por consola/test con bot aleatorio.
 
 ## Fase 2 — Render de cartas y mesa (3–4 días)
-- [ ] Carta como quad con textura (atlas placeholder), esquinas redondeadas.
-- [ ] Inclinación 3D por cursor, hover, selección (elevar), arrastre, reordenar.
-- [ ] Mano en abanico, mazo, zona de juego, descarte.
-- [ ] Animaciones: robar, jugar, descartar (tweens con easing/muelles).
-- [ ] Fondo shader swirl + post-proceso CRT (con toggle).
+- [x] Carta como quad con textura (atlas placeholder), esquinas redondeadas.
+- [x] Inclinación 3D por cursor, hover, selección (elevar), arrastre, reordenar.
+- [x] Mano en abanico, mazo, zona de juego, descarte.
+- [x] Animaciones: robar, jugar, descartar (tweens con easing/muelles).
+- [x] Fondo shader swirl + post-proceso CRT (con toggle).
 - **Entregable:** manejar la mano con ratón y jugar/descartar con feedback visual.
 
 ## Fase 3 — Loop jugable mínimo (3–4 días)
 - [x] HUD de la run: objetivo, puntos, manos, descartes, $, ante, vista previa de mano.
-- [x] Botones Jugar/Descartar (ordenar por rango/palo pendiente).
+- [x] Botones Jugar/Descartar.
 - [ ] Reproducción animada de eventos de scoring (sonidos placeholder).
 - [x] Menú principal con semilla, opciones, fondo swirl (hecho).
 - [x] Selección de ciega, cashout y fin de run.

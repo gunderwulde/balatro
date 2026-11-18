@@ -304,3 +304,7 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
   .icard, .empty-slot { --s: 1; }
   .shop-slot.sold .empty-slot { width: 71px; }
 }
+
+.sort-btns { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.actions { width: min(560px, 80vw); }
+.actions .btn { flex: 1; }

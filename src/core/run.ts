@@ -307,6 +307,25 @@ export class Run {
     this.jokers.splice(i, 1);
   }
 
+  /** Reordena la mano (arrastre). Debe contener exactamente las mismas cartas. */
+  reorderHand(ids: number[]): void {
+    this.expect('playing');
+    const same = ids.length === this.hand.length && this.hand.every((c) => ids.includes(c.id)) && new Set(ids).size === ids.length;
+    if (!same) throw new Error('Orden de mano inválido');
+    this.hand = ids.map((id) => this.hand.find((c) => c.id === id)!);
+  }
+
+  /** Ordena la mano por rango (mayor primero) o por palo. */
+  sortHand(mode: 'rank' | 'suit'): void {
+    this.expect('playing');
+    const suitOrder = { S: 0, H: 1, C: 2, D: 3 } as const;
+    this.hand.sort((a, b) =>
+      mode === 'rank'
+        ? b.rank - a.rank || suitOrder[a.suit] - suitOrder[b.suit]
+        : suitOrder[a.suit] - suitOrder[b.suit] || b.rank - a.rank,
+    );
+  }
+
   moveJoker(from: number, to: number): void {
     if (from < 0 || from >= this.jokers.length || to < 0 || to >= this.jokers.length) throw new Error('Posición inválida');
     const [j] = this.jokers.splice(from, 1);
