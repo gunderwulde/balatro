@@ -32,7 +32,8 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - [ ] HUD: marcador de ciega, objetivo, manos/descartes, $, ante/ronda, chips×mult, vista previa de mano.
 - [ ] Botones Jugar/Descartar, ordenar por rango/palo.
 - [ ] Reproducción animada de eventos de scoring (sonidos placeholder).
-- [ ] Pantalla de cashout, fin de run (win/lose), menú principal con semilla.
+- [x] Menú principal con semilla, opciones, fondo swirl (hecho).
+- [ ] Pantalla de cashout, fin de run (win/lose).
 - **Entregable:** jugar 3 ciegas solo con cartas (sin tienda) de principio a fin.
 
 ## Fase 4 — Jokers y tienda (4–6 días)
