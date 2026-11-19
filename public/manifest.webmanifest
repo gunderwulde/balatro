@@ -1,0 +1,12 @@
+{
+  "name": "Balatro Web",
+  "short_name": "Balatro",
+  "description": "Port de Balatro para navegador",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#16302d",
+  "theme_color": "#16302d",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

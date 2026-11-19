@@ -387,3 +387,10 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 }
 :root[data-rm='1'] .pv-nums .mult.fire { animation: none; box-shadow: 0 0 8px 3px #ff9a3c; }
 :root[data-rm='1'] *, :root[data-rm='1'] *::before { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+
+/* Partículas */
+.spark { position: fixed; width: 6px; height: 6px; pointer-events: none; z-index: 60; animation: spark .6s ease-out forwards; }
+@keyframes spark {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) scale(0.3); opacity: 0; }
+}

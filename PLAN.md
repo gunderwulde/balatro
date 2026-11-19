@@ -67,16 +67,16 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 
 ## Fase 8 — Pulido, audio y plataforma (1 semana)
 - [x] Música generativa y SFX sintetizados con WebAudio (`src/audio/audio.ts`, sin assets), con volúmenes de música/efectos en Opciones. Música no dinámica por ahora (un solo loop).
-- [x] Juice: sacudida en ×Mult, números flotantes y mult en llamas (sin partículas todavía).
+- [x] Juice: sacudida en ×Mult, números flotantes y mult en llamas y chispas de colores en fichas/mult (sin partículas 3D).
 - [x] Teclado (Enter/Espacio jugar, D descartar, 1-9 seleccionar, Esc limpiar); táctil vía pointer events; reducir movimiento, alto contraste de palos y CRT off en Opciones.
 - [x] i18n ES/EN: `src/i18n/index.ts` (setLang intercambia los textos de contenido; `t()` traduce los literales de la UI con ES como clave), traducciones en `content.en.ts`, `content2.en.ts` y `ui.en.ts`; selector de idioma en Opciones (por defecto, el del navegador). Los errores internos de la run solo están traducidos los habituales.
-- [ ] Rendimiento (profiling, ≤150 draw calls, carga de assets), PWA opcional.
+- [x] Rendimiento: HUD `?debug` (fps, draw calls, tris, texturas) y calidad adaptativa (<35 fps sostenidos: baja DPR y luego quita el CRT). Estimación de escena: ~2 draw calls por carta, muy por debajo de 150. PWA instalable con service worker (`public/`). Sin assets binarios que cargar. Medición real en dispositivos pendiente.
 - **Entregable:** build de producción desplegable (Netlify/Vercel/itch.io).
 
 ## Fase 9 — Lanzamiento
-- [ ] Playtest, balance, corrección de bugs.
-- [ ] Hosting + dominio, analítica opcional (respetando privacidad).
-- [ ] Decidir modelo: gratis/demo/de pago y aspectos legales (ver GDD §17).
+- [x] Playtest automatizado: bot de simulación + fuzz por mazo/stake/desafío (corrigió un bloqueo de ronda). Balance con personas reales **pendiente** (ver LAUNCH.md §1).
+- [x] Hosting en GitHub Pages con despliegue automático; guía de dominio propio; sin analítica (LAUNCH.md §2).
+- [~] Modelo y aspectos legales: opciones y recomendación en LAUNCH.md §3; **la decisión final es del autor**.
 
 ## Riesgos y mitigaciones
 | Riesgo | Mitigación |

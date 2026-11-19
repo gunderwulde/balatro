@@ -96,6 +96,9 @@ function continueGame() {
 }
 
 unlockOnGesture();
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => undefined);
+}
 const menu = new MainMenu({
   onStart: startGame,
   onContinue: continueGame,
@@ -138,6 +141,46 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+// ---- rendimiento: HUD de depuración (?debug) y calidad adaptativa
+const debugHud = new URLSearchParams(location.search).has('debug') ? document.createElement('pre') : null;
+if (debugHud) {
+  debugHud.style.cssText = 'position:fixed;left:6px;bottom:6px;margin:0;padding:4px 6px;font:11px monospace;color:#9f9;background:#000a;z-index:99;pointer-events:none';
+  document.body.appendChild(debugHud);
+}
+renderer.info.autoReset = false;
+let perfFrames = 0;
+let perfStart = 0;
+let lowSeconds = 0;
+let quality = 2; // 2 = completo, 1 = sin DPR extra, 0 = sin CRT
+
+function degrade() {
+  quality--;
+  if (quality === 1) {
+    renderer.setPixelRatio(1);
+    resize();
+  } else if (quality === 0) {
+    post.setCrt(false);
+  }
+}
+
+function perfTick(t: number) {
+  if (!perfStart) perfStart = t;
+  perfFrames++;
+  if (t - perfStart < 1000) return;
+  const fps = (perfFrames * 1000) / (t - perfStart);
+  if (debugHud) {
+    debugHud.textContent = `${fps.toFixed(0)} fps · ${renderer.info.render.calls} draw calls · ${renderer.info.render.triangles} tris · ${renderer.info.memory.textures} tex · q${quality}`;
+  }
+  // Solo degrada con la pestaña visible y tras 3 segundos seguidos por debajo de 35 fps.
+  lowSeconds = fps < 35 && !document.hidden ? lowSeconds + 1 : 0;
+  if (lowSeconds >= 3 && quality > 0) {
+    degrade();
+    lowSeconds = 0;
+  }
+  perfFrames = 0;
+  perfStart = t;
+}
+
 renderer.setAnimationLoop((t) => {
   bg.update(t, camera.aspect);
   if (mode === 'menu') {
@@ -152,4 +195,6 @@ renderer.setAnimationLoop((t) => {
     table?.update(performance.now());
   }
   post.render();
+  perfTick(t);
+  renderer.info.reset();
 });

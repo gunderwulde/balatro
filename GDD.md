@@ -129,8 +129,8 @@ Ej.: Investment ($25 al derrotar boss), Voucher Tag, Double Tag, Coupon, Charm/M
 - **Post-lanzamiento:** retos, semilla diaria, modding/JSON de contenido, leaderboards (requiere backend).
 
 ## 17. Decisiones abiertas
-1. ¿HUD en DOM o en canvas (texto)? Propuesto: DOM.
-2. ¿Orientación táctil/móvil en MVP o v1.0?
-3. ¿Assets originales del autor disponibles y en qué formato?
+1. ~~HUD en DOM o canvas~~ → DOM (resuelto).
+2. ~~Táctil/móvil~~ → entrada por pointer events desde el MVP; pulido móvil pendiente de playtest.
+3. ~~Assets originales~~ → descartado: arte y audio procedurales.
 4. Tabla exacta de objetivos Endless, probabilidades de tienda y lista completa de contenido: confirmar con datos oficiales.
 5. ¿Nombre y marca del port (oficial o fan-project)?

@@ -591,6 +591,7 @@ export class GameUI {
       sfx(e.type === 'xmult' ? 'xmult' : e.type === 'chips' ? 'chips' : 'mult', n++);
       if (e.type === 'xmult') this.shake(6);
       this.bump(e.type === 'chips' ? 'pv-chips' : 'pv-mult');
+      this.burst(e.type === 'chips' ? '#pv-chips' : '#pv-mult', e.type === 'chips' ? '#6fa4ff' : '#ff7b72', e.type === 'xmult' ? 14 : 7);
       if (e.source.kind === 'joker' || e.source.kind === 'edition' || e.source.kind === 'held') this.popJoker(e);
       await sleep((e.source.kind === 'card' || e.source.kind === 'planet' ? 130 : 420) * speed);
     }
@@ -696,6 +697,23 @@ export class GameUI {
     this.setText('pv-name', name || ' ');
     this.setText('pv-chips', String(Math.round(chips)));
     this.setText('pv-mult', Number.isInteger(mult) ? String(mult) : mult.toFixed(1).replace('.', ','));
+  }
+
+  /** Chispas de colores que salen de un elemento (se omiten con «Reducir movimiento»). */
+  private burst(selector: string, color: string, count: number) {
+    if (document.documentElement.dataset.rm === '1') return;
+    const el = this.root.querySelector<HTMLElement>(selector);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    for (let i = 0; i < count; i++) {
+      const sp = document.createElement('i');
+      const a = Math.random() * Math.PI * 2;
+      const d = 30 + Math.random() * 50;
+      sp.className = 'spark';
+      sp.style.cssText = `left:${rect.left + rect.width / 2}px;top:${rect.top + rect.height / 2}px;background:${color};--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d - 20}px`;
+      this.root.appendChild(sp);
+      setTimeout(() => sp.remove(), 650);
+    }
   }
 
   /** Sacudida de pantalla (se desactiva con «Reducir movimiento»). */
