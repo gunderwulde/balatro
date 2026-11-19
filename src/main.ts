@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import '@fontsource/pixelify-sans/latin-400.css';
 import '@fontsource/pixelify-sans/latin-700.css';
-import '@fontsource/silkscreen/latin-700.css';
 import './ui/menu.css';
 import type { Card } from './core/cards';
 import { Background, PALETTES } from './render/background';

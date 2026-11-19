@@ -8,8 +8,8 @@
   --red: #d9433c;
   --red-d: #85231f;
   --font: 'Pixelify Sans', 'Courier New', monospace;
-  /* Cifras: Silkscreen distingue bien 2, 3, 6 y 8 */
-  --font-num: 'Silkscreen', 'Pixelify Sans', monospace;
+  /* Cifras: fuente sans clara (Verdana/Tahoma) para distinguir 2, 3, 6 y 8 */
+  --font-num: Verdana, Tahoma, 'DejaVu Sans', Arial, sans-serif;
 }
 
 .menu {
@@ -367,5 +367,5 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 
 .actions.away { opacity: 0; pointer-events: none; }
 
-.stat-box b, .stat-line b, .pv-nums, .float, #round-score, #money { font-family: var(--font-num); font-weight: 700; letter-spacing: 1px; }
+.stat-box b, .stat-line b, .pv-nums, .float, #round-score, #money { font-family: var(--font-num); font-weight: 700; letter-spacing: 0; text-shadow: 2px 2px 0 rgba(0,0,0,.6); }
 .stat-box b { font-size: clamp(16px, 2.2vw, 24px); }
