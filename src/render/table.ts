@@ -202,13 +202,16 @@ export class Table {
 
   layout(): void {
     const n = this.objs.length;
-    const spacing = Math.min(CW * TABLE_SCALE * 0.7, (this.camera.aspect * 7.2 * 0.9) / Math.max(n, 1));
+    const edge = this.camera.aspect * 7.56 * 0.5 * 0.86;
+    const cardW = CW * TABLE_SCALE;
+    // Las cartas de los extremos no deben tocar las pilas: queda un hueco de media carta.
+    const halfSpan = Math.max(0, edge - cardW * 1.1);
+    const spacing = Math.min(cardW * 0.7, n > 1 ? (2 * halfSpan) / (n - 1) : Infinity);
     this.objs.forEach((o, i) => {
       const k = i - (n - 1) / 2;
       o.base.set(k * spacing, -2.7 - k * k * 0.03, i * 0.01);
       o.baseRot = -k * 0.04;
     });
-    const edge = this.camera.aspect * 7.56 * 0.5 * 0.86;
     this.pilePos.set(edge, -2.7, 0);
     this.discardPos.set(-edge, -2.7, 0);
     this.drawPileMesh.position.copy(this.pilePos);
