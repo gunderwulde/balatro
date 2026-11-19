@@ -74,3 +74,24 @@ export const EDITION_TEXT: Record<Edition, { name: string; desc: string }> = {
   negative: { name: 'Negativa', desc: '+1 espacio de Joker' },
 };
 
+
+Object.assign(JOKER_TEXT, {
+  mime: { name: 'Mimo', desc: 'Repite los efectos de las cartas en tu mano' },
+  hanging_chad: { name: 'Papeleta Colgante', desc: 'Repite 2 veces la primera carta que puntúa' },
+  hack: { name: 'Hacker', desc: 'Repite las cartas 2, 3, 4 y 5 que puntúan' },
+  dusk: { name: 'Ocaso', desc: 'Repite todas las cartas que puntúan en la última mano' },
+  sock_and_buskin: { name: 'Calcetín y Coturno', desc: 'Repite las figuras que puntúan' },
+  seltzer: { name: 'Agua con Gas', desc: 'Repite todas las cartas que puntúan; se destruye tras 10 manos' },
+  blueprint: { name: 'Plano', desc: 'Copia el joker de su derecha' },
+  brainstorm: { name: 'Tormenta de Ideas', desc: 'Copia el joker de más a la izquierda' },
+  rough_gem: { name: 'Gema en Bruto', desc: 'Las cartas ♦ que puntúan dan $1' },
+  golden_ticket: { name: 'Billete Dorado', desc: 'Las cartas de oro que puntúan dan $4' },
+  bloodstone: { name: 'Piedra de Sangre', desc: '1 de cada 2: las cartas ♥ que puntúan dan ×1,5 Mult' },
+  gros_michel: { name: 'Gros Michel', desc: '+15 Mult; 1 de cada 6 se destruye al final de la ronda' },
+  cavendish: { name: 'Cavendish', desc: '×3 Mult; 1 de cada 1000 se destruye al final de la ronda' },
+  ice_cream: { name: 'Helado', desc: '+100 Fichas, -5 por cada mano jugada; se destruye al llegar a 0' },
+  popcorn: { name: 'Palomitas', desc: '+20 Mult, -4 por ronda; se destruye al llegar a 0' },
+  stone_joker: { name: 'Joker de Piedra', desc: '+25 Fichas por cada carta de Piedra en tu mazo' },
+  steel_joker: { name: 'Joker de Acero', desc: '×0,2 Mult extra por cada carta de Acero en tu mazo' },
+  cloud_9: { name: 'Nube 9', desc: 'Ganas $1 al final de la ronda por cada 9 en tu mazo' },
+});

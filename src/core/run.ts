@@ -361,6 +361,7 @@ export class Run implements EffectHost {
       money: this.money,
       deckLeft: this.drawPile.length,
       handPlays: this.handPlays,
+      deck: this.fullDeck,
       rng,
       debuff: boss ? (c) => this.isDebuffed(c) : undefined,
       flint: !!boss?.flint,
@@ -441,7 +442,11 @@ export class Run implements EffectHost {
   }
 
   private clearRound(lastHand: HandType, held: Card[]) {
-    const jokerBonus = this.jokers.reduce((n, j) => n + (JOKERS[j.id].roundEndMoney?.(j) ?? 0), 0);
+    const jokerBonus = this.jokers.reduce((n, j) => n + (JOKERS[j.id].roundEndMoney?.(j, this.fullDeck) ?? 0), 0);
+    // Jokers que se destruyen al final de la ronda (Gros Michel, Ice Cream…); los Eternos son inmunes.
+    const deathRng = this.rngFor('jokerdeath');
+    const dying = this.jokers.filter((j) => JOKERS[j.id].onRoundEnd?.(j, () => deathRng.next()) && j.sticker !== 'eternal');
+    if (dying.length) this.removeJokers(dying.map((j) => j.uid));
     const cash = computeCashout(this.blind, this.handsLeft, this.money, jokerBonus, this.interestCap);
     cash.heldBonus = 3 * held.filter((c) => c.enhancement === 'gold').length;
     if (this.blind === 'boss') cash.tagBonus = 25 * this.consumeTags((t) => t === 'investment');

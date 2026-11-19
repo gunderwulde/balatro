@@ -1,6 +1,6 @@
 import { cardChips, type Card } from './cards';
 import { evaluateHand, type HandType } from './hands';
-import { JOKERS, jokerActive, type Effect, type JokerInstance, type ScoreCtx } from './jokers';
+import { JOKERS, jokerActive, type Effect, type JokerDef, type JokerInstance, type ScoreCtx } from './jokers';
 
 interface HandBase { chips: number; mult: number; chipsPerLevel: number; multPerLevel: number }
 
@@ -87,6 +87,8 @@ export interface ScoreOptions {
   planetHands?: Set<HandType>;
   /** Plasma Deck: iguala fichas y mult al final. */
   balance?: boolean;
+  /** Mazo completo (jokers que cuentan cartas del mazo). */
+  deck?: Card[];
 }
 
 export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
@@ -102,6 +104,8 @@ export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
     deckLeft: opts.deckLeft ?? 0,
     jokerCount: opts.jokers?.length ?? 0,
     handPlays: opts.handPlays ?? {},
+    deck: opts.deck ?? [],
+    rng: opts.rng ?? (() => 1),
   };
 }
 
@@ -134,12 +138,22 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
     if (e.chips) push('chips', e.chips, source);
     if (e.mult) push('mult', e.mult, source);
     if (e.xmult && e.xmult !== 1) push('xmult', e.xmult, source);
+    if (e.money) push('money', e.money, source);
   };
+  // Blueprint/Brainstorm: el joker efectivo (definición + instancia cuyo estado se usa).
+  const effective = (j: JokerInstance, idx: number): [JokerDef, JokerInstance] => {
+    const d = JOKERS[j.id];
+    if (!d.copies) return [d, j];
+    const t = d.copies === 'right' ? jokers[idx + 1] : jokers[0];
+    return t && t !== j && !JOKERS[t.id].copies ? [JOKERS[t.id], t] : [d, j];
+  };
+  const eff = jokers.map(effective);
 
   for (const card of ctx.scoring) {
     if (debuffed(card)) continue;
     const src: EventSource = { kind: 'card', id: card.id };
-    const times = card.seal === 'red' ? 2 : 1;
+    let times = card.seal === 'red' ? 2 : 1;
+    for (const [d, j] of eff) times += d.retriggerScored?.(j, ctx, card) ?? 0;
     for (let rep = 0; rep < times; rep++) {
       const rankChips = cardChips(card);
       if (rankChips) push('chips', rankChips, src);
@@ -157,7 +171,7 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
       if (card.edition === 'foil') push('chips', FOIL_CHIPS, src);
       if (card.edition === 'holo') push('mult', HOLO_MULT, src);
       if (card.edition === 'poly') push('xmult', POLY_XMULT, src);
-      for (const j of jokers) apply(JOKERS[j.id].onCardScored?.(j, ctx, card), { kind: 'joker', id: j.uid });
+      jokers.forEach((owner, i) => apply(eff[i][0].onCardScored?.(eff[i][1], ctx, card), { kind: 'joker', id: owner.uid }));
     }
     if (card.seal === 'gold') push('money', GOLD_SEAL_MONEY, src);
     if (card.enhancement === 'glass' && rng() < GLASS_BREAK_CHANCE) destroyed.push(card.id);
@@ -165,14 +179,18 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
 
   for (const card of ctx.held) {
     if (debuffed(card)) continue;
-    if (card.enhancement === 'steel') push('xmult', STEEL_XMULT, { kind: 'card', id: card.id });
-    for (const j of jokers) apply(JOKERS[j.id].onHeld?.(j, ctx, card), { kind: 'held', id: j.uid });
+    let times = 1;
+    for (const [d, j] of eff) times += d.retriggerHeld?.(j, ctx, card) ?? 0;
+    for (let rep = 0; rep < times; rep++) {
+      if (card.enhancement === 'steel') push('xmult', STEEL_XMULT, { kind: 'card', id: card.id });
+      jokers.forEach((owner, i) => apply(eff[i][0].onHeld?.(eff[i][1], ctx, card), { kind: 'held', id: owner.uid }));
+    }
   }
 
-  for (const j of jokers) {
+  for (const [i, j] of jokers.entries()) {
     if (j.edition === 'foil') push('chips', FOIL_CHIPS, { kind: 'edition', id: j.uid });
     if (j.edition === 'holo') push('mult', HOLO_MULT, { kind: 'edition', id: j.uid });
-    apply(JOKERS[j.id].onScore?.(j, ctx), { kind: 'joker', id: j.uid });
+    apply(eff[i][0].onScore?.(eff[i][1], ctx), { kind: 'joker', id: j.uid });
     if (j.edition === 'poly') push('xmult', POLY_XMULT, { kind: 'edition', id: j.uid });
   }
 

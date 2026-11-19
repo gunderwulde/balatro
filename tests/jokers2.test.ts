@@ -70,3 +70,80 @@ describe('jokers lote 1', () => {
     expect(scoreHand(mk('9S'), { jokers: [joker('raised_fist')], held: [] }).total).toBe(14);
   });
 });
+
+describe('jokers lote 2 (motor)', () => {
+  const sc = (cards: string, js: JokerInstance[], extra: object = {}) => scoreHand(mk(cards), { jokers: js, ...extra }).total;
+  it('Hack repite 2-5 que puntúan; Hanging Chad repite 2 veces la primera', () => {
+    expect(sc('5S', [joker('hack')])).toBe(5 + 5 + 5);
+    expect(sc('9S', [joker('hack')])).toBe(14);
+    expect(sc('9S', [joker('hanging_chad')])).toBe(5 + 9 * 3);
+  });
+  it('Dusk solo en la última mano; Sock and Buskin en figuras', () => {
+    expect(sc('9S', [joker('dusk')], { handsLeft: 1 })).toBe(5 + 18);
+    expect(sc('9S', [joker('dusk')], { handsLeft: 3 })).toBe(14);
+    expect(sc('KS', [joker('sock_and_buskin')])).toBe(5 + 20);
+  });
+  it('Mime repite cartas en mano (Steel ×1.5 dos veces; Baron)', () => {
+    const held = mk('KH');
+    held[0].enhancement = 'steel';
+    expect(sc('9S', [joker('mime')], { held })).toBe(Math.floor(14 * 1 * 1.5 * 1.5));
+    expect(sc('9S', [joker('mime'), joker('baron')], { held: mk('KD') })).toBe(Math.floor(14 * 1.5 * 1.5));
+  });
+  it('Blueprint copia al de la derecha, Brainstorm al primero; no se copian entre sí', () => {
+    expect(sc('9S', [joker('blueprint'), joker('joker')])).toBe((5 + 9) * 9);
+    expect(sc('9S', [joker('joker'), joker('brainstorm')])).toBe((5 + 9) * 9);
+    expect(sc('9S', [joker('blueprint'), joker('brainstorm')])).toBe(14);
+    expect(sc('9S', [joker('blueprint')])).toBe(14);
+  });
+  it('Blueprint copia estado y retriggers', () => {
+    expect(sc('5S', [joker('blueprint'), joker('hack')])).toBe(5 + 5 * 3);
+  });
+  it('dinero por carta: Rough Gem y Golden Ticket; Bloodstone con rng', () => {
+    expect(scoreHand(mk('9D'), { jokers: [joker('rough_gem')] }).money).toBe(1);
+    const g = mk('9S');
+    g[0].enhancement = 'gold';
+    expect(scoreHand(g, { jokers: [joker('golden_ticket')] }).money).toBe(4);
+    expect(sc('9H', [joker('bloodstone')], { rng: () => 0.1 })).toBe(Math.floor(14 * 1.5));
+    expect(sc('9H', [joker('bloodstone')], { rng: () => 0.9 })).toBe(14);
+  });
+  it('jokers del mazo: Stone, Steel, Cloud 9', () => {
+    const deck = mk('2S 9H 9D KC');
+    deck[0].enhancement = 'stone';
+    deck[3].enhancement = 'steel';
+    expect(sc('9S', [joker('stone_joker')], { deck })).toBe(14 + 25);
+    expect(sc('9S', [joker('steel_joker')], { deck })).toBe(Math.floor(14 * 1.2));
+    const r = new Run('C9');
+    r.addJoker('cloud_9');
+    r.selectBlind();
+    r.score = 1e12;
+    r.play([r.hand[0].id]);
+    expect(r.cashout!.jokerBonus).toBe(4);
+  });
+  it('destrucción al final de ronda: Gros Michel, Ice Cream, Popcorn, Seltzer; Eterno inmune', () => {
+    const run = (id: string, setup?: (j: JokerInstance) => void) => {
+      const r = new Run('DIE');
+      const j = r.addJoker(id);
+      setup?.(j);
+      r.selectBlind();
+      r.score = 1e12;
+      r.play([r.hand[0].id]);
+      return r;
+    };
+    expect(run('ice_cream', (j) => { j.state.spent = 19; }).jokers).toHaveLength(0);
+    expect(run('ice_cream').jokers).toHaveLength(1);
+    expect(run('popcorn', (j) => { j.state.rounds = 4; }).jokers).toHaveLength(0);
+    expect(run('seltzer', (j) => { j.state.hands = 9; }).jokers).toHaveLength(0);
+    expect(run('ice_cream', (j) => { j.state.spent = 19; j.sticker = 'eternal'; }).jokers).toHaveLength(1);
+    let died = 0;
+    for (let i = 0; i < 60; i++) {
+      const r = new Run('GM' + i);
+      r.addJoker('gros_michel');
+      r.selectBlind();
+      r.score = 1e12;
+      r.play([r.hand[0].id]);
+      if (!r.jokers.length) died++;
+    }
+    expect(died).toBeGreaterThan(0);
+    expect(died).toBeLessThan(40);
+  });
+});

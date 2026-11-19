@@ -8,6 +8,7 @@ export interface Effect {
   chips?: number;
   mult?: number;
   xmult?: number;
+  money?: number;
 }
 
 /** Contexto que ven los jokers al puntuar una mano. */
@@ -22,6 +23,10 @@ export interface ScoreCtx {
   deckLeft: number;
   jokerCount: number;
   handPlays: Partial<Record<HandType, number>>;
+  /** Mazo completo (Stone/Steel Joker, Cloud 9). */
+  deck: Card[];
+  /** Tiradas aleatorias [0,1) (en la vista previa nunca ocurre nada). */
+  rng: () => number;
 }
 
 export interface JokerInstance {
@@ -52,7 +57,15 @@ export interface JokerDef {
   /** Tras puntuar la mano (actualiza estado de jokers que escalan). */
   onHandPlayed?(j: JokerInstance, ctx: ScoreCtx): void;
   onDiscard?(j: JokerInstance): void;
-  roundEndMoney?(j: JokerInstance): number;
+  roundEndMoney?(j: JokerInstance, deck: Card[]): number;
+  /** Repeticiones extra de una carta que puntúa. */
+  retriggerScored?(j: JokerInstance, ctx: ScoreCtx, card: Card): number;
+  /** Repeticiones extra de una carta en mano. */
+  retriggerHeld?(j: JokerInstance, ctx: ScoreCtx, card: Card): number;
+  /** Copia el efecto de otro joker (Blueprint: el de la derecha; Brainstorm: el primero). */
+  copies?: 'right' | 'left';
+  /** Al acabar la ronda: true = el joker se destruye (los Eternos son inmunes). */
+  onRoundEnd?(j: JokerInstance, rng: () => number): boolean;
   passive?: { handSize?: number; hands?: number; discards?: number };
   /** Anula el efecto del Boss Blind (Chicot). */
   disablesBoss?: boolean;
@@ -146,6 +159,48 @@ export const JOKER_LIST: JokerDef[] = [
   },
   { id: 'chicot', rarity: 'legendary', cost: 20, disablesBoss: true },
   { id: 'bull', rarity: 'uncommon', cost: 6, onScore: (_j, c) => ({ chips: 2 * Math.max(0, c.money) }) },
+  // ---- Lote 2 de Fase 7: motor (repeticiones, copia, destrucción, dinero por carta, mazo) ⚠ verificar ----
+  { id: 'mime', rarity: 'uncommon', cost: 5, retriggerHeld: () => 1 },
+  { id: 'hanging_chad', rarity: 'common', cost: 4, retriggerScored: (_j, c, card) => (card === c.scoring[0] ? 2 : 0) },
+  { id: 'hack', rarity: 'uncommon', cost: 6, retriggerScored: (_j, _c, card) => (inSet([2, 3, 4, 5])(card) ? 1 : 0) },
+  { id: 'dusk', rarity: 'uncommon', cost: 5, retriggerScored: (_j, c) => (c.handsLeft === 1 ? 1 : 0) },
+  { id: 'sock_and_buskin', rarity: 'uncommon', cost: 6, retriggerScored: (_j, _c, card) => (isFace(card) ? 1 : 0) },
+  {
+    id: 'seltzer', rarity: 'uncommon', cost: 6,
+    retriggerScored: () => 1,
+    onHandPlayed: (j) => { j.state.hands = (j.state.hands ?? 0) + 1; },
+    onRoundEnd: (j) => (j.state.hands ?? 0) >= 10,
+  },
+  { id: 'blueprint', rarity: 'rare', cost: 10, copies: 'right' },
+  { id: 'brainstorm', rarity: 'rare', cost: 10, copies: 'left' },
+  { id: 'rough_gem', rarity: 'uncommon', cost: 7, onCardScored: (_j, _c, card) => (cardIsSuit(card, 'D') ? { money: 1 } : undefined) },
+  { id: 'golden_ticket', rarity: 'common', cost: 5, onCardScored: (_j, _c, card) => (card.enhancement === 'gold' ? { money: 4 } : undefined) },
+  {
+    id: 'bloodstone', rarity: 'uncommon', cost: 7,
+    onCardScored: (_j, c, card) => (cardIsSuit(card, 'H') && c.rng() < 0.5 ? { xmult: 1.5 } : undefined),
+  },
+  { id: 'gros_michel', rarity: 'common', cost: 5, onScore: () => ({ mult: 15 }), onRoundEnd: (_j, rng) => rng() < 1 / 6 },
+  { id: 'cavendish', rarity: 'common', cost: 4, onScore: () => ({ xmult: 3 }), onRoundEnd: (_j, rng) => rng() < 1 / 1000 },
+  {
+    id: 'ice_cream', rarity: 'common', cost: 5,
+    onScore: (j) => ({ chips: Math.max(0, 100 - 5 * (j.state.spent ?? 0)) }),
+    onHandPlayed: (j) => { j.state.spent = (j.state.spent ?? 0) + 1; },
+    onRoundEnd: (j) => 100 - 5 * (j.state.spent ?? 0) <= 0,
+  },
+  {
+    id: 'popcorn', rarity: 'common', cost: 5,
+    onScore: (j) => ({ mult: Math.max(0, 20 - 4 * (j.state.rounds ?? 0)) }),
+    onRoundEnd: (j) => { j.state.rounds = (j.state.rounds ?? 0) + 1; return 20 - 4 * j.state.rounds <= 0; },
+  },
+  { id: 'stone_joker', rarity: 'uncommon', cost: 6, onScore: (_j, c) => ({ chips: 25 * c.deck.filter(isStone).length }) },
+  {
+    id: 'steel_joker', rarity: 'uncommon', cost: 7,
+    onScore: (_j, c) => {
+      const n = c.deck.filter((x) => x.enhancement === 'steel').length;
+      return n ? { xmult: 1 + 0.2 * n } : undefined;
+    },
+  },
+  { id: 'cloud_9', rarity: 'uncommon', cost: 7, roundEndMoney: (_j, deck) => deck.filter((x) => !isStone(x) && x.rank === 9).length },
   // ---- Lote 1 de Fase 7 ⚠ verificar valores ----
   {
     id: 'walkie_talkie', rarity: 'common', cost: 4,
