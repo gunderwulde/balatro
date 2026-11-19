@@ -23,20 +23,20 @@ const SUIT_BITMAP: Record<Suit, string[]> = {
 };
 
 const GLYPH: Record<string, string[]> = {
-  '0': ['XXX', 'X.X', 'X.X', 'X.X', 'XXX'],
-  '1': ['.X.', 'XX.', '.X.', '.X.', 'XXX'],
-  '2': ['XXX', '..X', 'XXX', 'X..', 'XXX'],
-  '3': ['XXX', '..X', 'XXX', '..X', 'XXX'],
-  '4': ['X.X', 'X.X', 'XXX', '..X', '..X'],
-  '5': ['XXX', 'X..', 'XXX', '..X', 'XXX'],
-  '6': ['XXX', 'X..', 'XXX', 'X.X', 'XXX'],
-  '7': ['XXX', '..X', '.X.', '.X.', '.X.'],
-  '8': ['XXX', 'X.X', 'XXX', 'X.X', 'XXX'],
-  '9': ['XXX', 'X.X', 'XXX', '..X', 'XXX'],
-  J: ['..X', '..X', '..X', 'X.X', 'XXX'],
-  Q: ['XXX', 'X.X', 'X.X', 'XXX', '..X'],
-  K: ['X.X', 'X.X', 'XX.', 'X.X', 'X.X'],
-  A: ['.X.', 'X.X', 'XXX', 'X.X', 'X.X'],
+  '0': ['.XXX.', 'X...X', 'X...X', 'X...X', 'X...X', 'X...X', '.XXX.'],
+  '1': ['..X..', '.XX..', '..X..', '..X..', '..X..', '..X..', '.XXX.'],
+  '2': ['.XXX.', 'X...X', '....X', '...X.', '..X..', '.X...', 'XXXXX'],
+  '3': ['XXXX.', '....X', '....X', '.XXX.', '....X', '....X', 'XXXX.'],
+  '4': ['...X.', '..XX.', '.X.X.', 'X..X.', 'XXXXX', '...X.', '...X.'],
+  '5': ['XXXXX', 'X....', 'XXXX.', '....X', '....X', 'X...X', '.XXX.'],
+  '6': ['..XX.', '.X...', 'X....', 'XXXX.', 'X...X', 'X...X', '.XXX.'],
+  '7': ['XXXXX', '....X', '...X.', '..X..', '.X...', '.X...', '.X...'],
+  '8': ['.XXX.', 'X...X', 'X...X', '.XXX.', 'X...X', 'X...X', '.XXX.'],
+  '9': ['.XXX.', 'X...X', 'X...X', '.XXXX', '....X', '...X.', '.XX..'],
+  'J': ['..XXX', '...X.', '...X.', '...X.', '...X.', 'X..X.', '.XX..'],
+  'Q': ['.XXX.', 'X...X', 'X...X', 'X...X', 'X.X.X', 'X..X.', '.XX.X'],
+  'K': ['X...X', 'X..X.', 'X.X..', 'XX...', 'X.X..', 'X..X.', 'X...X'],
+  'A': ['..X..', '.X.X.', 'X...X', 'X...X', 'XXXXX', 'X...X', 'X...X'],
 };
 
 type Ctx = CanvasRenderingContext2D;
@@ -54,7 +54,7 @@ function text(ctx: Ctx, s: string, x: number, y: number, color: string) {
   let cx = x;
   for (const ch of s) {
     bitmap(ctx, GLYPH[ch], cx, y, color);
-    cx += 4;
+    cx += 6;
   }
 }
 
@@ -255,7 +255,7 @@ export function drawCardFace(card: Card): HTMLCanvasElement {
 
   const col = SUIT_COLOR[card.suit];
   const label = rankLabel(card.rank);
-  const lx = label.length === 2 ? 4 : 5;
+  const lx = label.length === 2 ? 4 : 7;
 
   if (card.enhancement === 'stone') {
     // Sin rango ni palo: solo la piedra.
@@ -265,12 +265,12 @@ export function drawCardFace(card: Card): HTMLCanvasElement {
     else for (const [x, y] of PIPS[card.rank]) suit(ctx, card.suit, x + 0.5, y, 1, y > 46);
 
     // índices en esquinas (esquina inferior rotada 180°)
-    text(ctx, label, lx, 5, col);
+    text(ctx, label, lx, 2, col);
     suit(ctx, card.suit, 9, 16);
     ctx.save();
     ctx.translate(CARD_W, CARD_H);
     ctx.scale(-1, -1);
-    text(ctx, label, lx, 5, col);
+    text(ctx, label, lx, 2, col);
     suit(ctx, card.suit, 9, 16);
     ctx.restore();
   }
