@@ -504,6 +504,10 @@ export class Run implements EffectHost {
     }
     this.draw(boss?.serpent ? 3 : undefined, true);
     this.rollDisabledJoker();
+    if (this.stuck()) {
+      this.phase = 'lost';
+      return { score, cleared: false, lost: true };
+    }
     return { score, cleared: false, lost: false };
   }
 
@@ -526,6 +530,28 @@ export class Run implements EffectHost {
       }
     }
     this.draw(this.activeBoss?.serpent ? 3 : undefined);
+    if (this.stuck()) this.phase = 'lost';
+  }
+
+  /** Sin descartes y sin ninguna jugada legal (Ojo/Boca con la mano actual): la ronda no se puede continuar. */
+  private stuck(): boolean {
+    if (this.hand.length === 0 && this.drawPile.length === 0) return true;
+    const b = this.activeBoss;
+    if (!b || !(b.noRepeatHand || b.singleHandType) || this.discardsLeft > 0 || this.handsLeft <= 0) return false;
+    const n = this.hand.length;
+    const pick: Card[] = [];
+    const rec = (start: number): boolean => {
+      if (pick.length && !this.playError(pick)) return true;
+      if (pick.length === MAX_SELECT) return false;
+      for (let i = start; i < n; i++) {
+        pick.push(this.hand[i]);
+        const ok = rec(i + 1);
+        pick.pop();
+        if (ok) return true;
+      }
+      return false;
+    };
+    return !rec(0);
   }
 
   private clearRound(lastHand: HandType, held: Card[]) {
