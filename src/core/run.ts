@@ -1,11 +1,12 @@
-import { cardIsSuit, createDeck, isFaceCard, shuffle, type Card } from './cards';
+import { cardIsSuit, createDeck, isFaceCard, shuffle, RANKS, SUITS, type Card } from './cards';
+import { anteBase, stakeRules, type StakeRules } from './stakes';
 import {
   BASE_CONSUMABLE_SLOTS, CONSUMABLES, type ConsumableInstance, type ConsumableKind,
 } from './consumables';
-import { pickBoss, type BossDef } from './bosses';
+import { BOSSES, pickBoss, type BossDef } from './bosses';
 import { applyConsumable, type EffectHost } from './effects';
 import { evaluateHand, type HandType } from './hands';
-import { EDITION_COST, JOKERS, sellValue, type Edition, type JokerInstance } from './jokers';
+import { EDITION_COST, JOKERS, jokerActive, sellValue, type Edition, type JokerInstance } from './jokers';
 import { PLANET_BY_ID, PLANETS } from './planets';
 import { Rng } from './rng';
 import { makeCtx, scoreHand, type ScoreOptions, type ScoreResult } from './scoring';
@@ -21,7 +22,6 @@ export type BlindKind = 'small' | 'big' | 'boss';
 export const BLINDS: BlindKind[] = ['small', 'big', 'boss'];
 
 /** ⚠ verificar (GDD §3): objetivo base por Ante (stake blanco). */
-export const ANTE_BASE = [300, 800, 2000, 5000, 11000, 20000, 35000, 50000];
 const BLIND_MULT: Record<BlindKind, number> = { small: 1, big: 1.5, boss: 2 };
 export const BLIND_REWARD: Record<BlindKind, number> = { small: 3, big: 4, boss: 5 };
 export const MAX_ANTE = 8;
@@ -38,7 +38,50 @@ export interface Cashout {
   heldBonus: number;
   /** Tags (Investment). */
   tagBonus: number;
+  /** Alquiler de jokers Rental (se resta). */
+  rental: number;
   total: number;
+}
+
+export interface RunOptions {
+  deck?: string;
+  stake?: number;
+}
+
+export interface RunSave {
+  v: 1;
+  seed: string;
+  deck: string;
+  stake: number;
+  endless: boolean;
+  phase: 'blind_select' | 'shop';
+  ante: number;
+  blindIndex: number;
+  money: number;
+  maxHands: number;
+  maxDiscards: number;
+  baseHandSize: number;
+  handSizePenalty: number;
+  skipped: number;
+  levels: Partial<Record<HandType, number>>;
+  handPlays: Partial<Record<HandType, number>>;
+  jokers: JokerInstance[];
+  consumables: ConsumableInstance[];
+  vouchers: string[];
+  tags: string[];
+  lastConsumed: { kind: ConsumableKind; id: string } | null;
+  shop: Shop | null;
+  fullDeck: Card[];
+  discovered: string[];
+  bestHand: number;
+  jokerSlotMod: number;
+  consumableSlotMod: number;
+  spectralShop: boolean;
+  internal: {
+    rng: number; scoreRng: number; nextUid: number; nextCardId: number; rngCount: number; shopCount: number;
+    bosses: [number, string][]; bossRerolls: [number, number][]; seenBosses: string[];
+    bossRerollsThisAnte: number; playedThisAnte: number[]; totalHandsPlayed: number; totalUnusedDiscards: number;
+  };
 }
 
 export interface PlayResult {
@@ -48,16 +91,15 @@ export interface PlayResult {
 }
 
 /** `bossMult` sustituye al ×2 del Boss (The Wall ×4, The Needle ×1…). */
-export function blindTarget(ante: number, kind: BlindKind, bossMult = BLIND_MULT.boss): number {
-  const base = ANTE_BASE[Math.min(ante, MAX_ANTE) - 1];
-  return Math.round(base * (kind === 'boss' ? bossMult : BLIND_MULT[kind]));
+export function blindTarget(ante: number, kind: BlindKind, bossMult = BLIND_MULT.boss, scaling: 1 | 2 | 3 = 1): number {
+  return Math.round(anteBase(ante, scaling) * (kind === 'boss' ? bossMult : BLIND_MULT[kind]));
 }
 
 export function computeCashout(kind: BlindKind, handsLeft: number, money: number, jokerBonus = 0, interestCap = 5): Cashout {
   const blindReward = BLIND_REWARD[kind];
   const handsBonus = handsLeft;
   const interest = Math.max(0, Math.min(interestCap, Math.floor(money / INTEREST_STEP)));
-  return { blindReward, handsBonus, interest, jokerBonus, heldBonus: 0, tagBonus: 0, total: blindReward + handsBonus + interest + jokerBonus };
+  return { blindReward, handsBonus, interest, jokerBonus, heldBonus: 0, tagBonus: 0, rental: 0, total: blindReward + handsBonus + interest + jokerBonus };
 }
 
 /** Máquina de estados de una run. Sin dependencias de render ni DOM. */
@@ -94,6 +136,19 @@ export class Run implements EffectHost {
   /** Tipos de mano jugados en esta ronda (Eye, Mouth). */
   roundHandTypes: HandType[] = [];
   readonly fullDeck: Card[];
+  /** Mazo y Stake de la run. */
+  deckId: string;
+  stake: number;
+  rules: StakeRules;
+  /** Tras ganar el Ante 8 se puede seguir (Endless). */
+  endless = false;
+  /** Mejor mano de la run (para estadísticas). */
+  bestHand = 0;
+  /** Todo lo que has tenido en esta run (para la colección). */
+  discovered = new Set<string>();
+  jokerSlotMod = 0;
+  consumableSlotMod = 0;
+  spectralShop = false;
   private rng: Rng;
   private scoreRng: Rng;
   private nextUid = 1;
@@ -110,10 +165,44 @@ export class Run implements EffectHost {
   private totalUnusedDiscards = 0;
   private roundHandSizeBonus = 0;
 
-  constructor(readonly seed: string) {
+  constructor(readonly seed: string, opts: RunOptions = {}) {
     this.rng = new Rng(seed);
     this.scoreRng = new Rng(`${seed}:score`);
     this.fullDeck = createDeck();
+    this.deckId = opts.deck ?? 'plain';
+    this.stake = Math.max(1, Math.min(8, opts.stake ?? 1));
+    this.rules = stakeRules(this.stake);
+    this.maxDiscards -= this.rules.discardsMinus;
+    this.applyDeck();
+  }
+
+  /** Modificadores de inicio del mazo elegido. */
+  private applyDeck() {
+    switch (this.deckId) {
+      case 'red': this.maxDiscards++; break;
+      case 'blue': this.maxHands++; break;
+      case 'yellow': this.money += 10; break;
+      case 'black': this.jokerSlotMod++; this.maxHands--; break;
+      case 'magic': this.vouchers.add('crystal_ball'); this.addConsumable('tarot', 'fool'); this.addConsumable('tarot', 'fool'); break;
+      case 'nebula': this.vouchers.add('telescope'); this.consumableSlotMod--; break;
+      case 'ghost': this.spectralShop = true; this.addConsumable('spectral', 'hex'); break;
+      case 'zodiac': for (const v of ['tarot_merchant', 'planet_merchant', 'overstock']) this.vouchers.add(v); break;
+      case 'painted': this.baseHandSize += 2; this.jokerSlotMod--; break;
+      case 'abandoned': this.setDeck(this.fullDeck.filter((c) => c.rank < 11 || c.rank > 13)); break;
+      case 'checkered': this.setDeck(this.fullDeck.map((c) => ({ ...c, suit: c.suit === 'C' ? 'S' : c.suit === 'D' ? 'H' : c.suit }))); break;
+      case 'erratic': {
+        const rng = new Rng(`${this.seed}:erratic`);
+        this.setDeck(this.fullDeck.map((c) => ({ ...c, rank: RANKS[rng.int(RANKS.length)], suit: SUITS[rng.int(SUITS.length)] })));
+        break;
+      }
+      default: break;
+    }
+    this.discovered.clear();
+  }
+
+  private setDeck(cards: Card[]) {
+    this.fullDeck.length = 0;
+    this.fullDeck.push(...cards);
   }
 
   // ---------- Derivados ----------
@@ -141,15 +230,15 @@ export class Run implements EffectHost {
   }
 
   get target(): number {
-    return blindTarget(this.ante, this.blind, this.boss.mult);
+    return blindTarget(this.ante, this.blind, this.boss.mult, this.rules.scaling) * (this.deckId === 'plasma' ? 2 : 1);
   }
 
   get jokerSlots(): number {
-    return BASE_JOKER_SLOTS + this.jokers.filter((j) => j.edition === 'negative').length + (this.vouchers.has('antimatter') ? 1 : 0);
+    return BASE_JOKER_SLOTS + this.jokerSlotMod + this.jokers.filter((j) => j.edition === 'negative').length + (this.vouchers.has('antimatter') ? 1 : 0);
   }
 
   get consumableSlots(): number {
-    return BASE_CONSUMABLE_SLOTS + this.consumables.filter((c) => c.edition === 'negative').length + (this.vouchers.has('crystal_ball') ? 1 : 0);
+    return BASE_CONSUMABLE_SLOTS + this.consumableSlotMod + this.consumables.filter((c) => c.edition === 'negative').length + (this.vouchers.has('crystal_ball') ? 1 : 0);
   }
 
   get handSize(): number {
@@ -167,7 +256,7 @@ export class Run implements EffectHost {
   }
 
   private passive(key: 'handSize' | 'hands' | 'discards'): number {
-    return this.jokers.reduce((n, j) => n + (JOKERS[j.id].passive?.[key] ?? 0), 0);
+    return this.jokers.reduce((n, j) => n + (jokerActive(j) ? JOKERS[j.id].passive?.[key] ?? 0 : 0), 0);
   }
 
   consumableSpace(): number {
@@ -276,6 +365,7 @@ export class Run implements EffectHost {
       debuff: boss ? (c) => this.isDebuffed(c) : undefined,
       flint: !!boss?.flint,
       disabledJoker: this.disabledJoker,
+      balance: this.deckId === 'plasma',
       planetHands: this.vouchers.has('observatory')
         ? new Set(this.consumables.filter((c) => c.kind === 'planet').map((c) => PLANET_BY_ID[c.id].hand))
         : undefined,
@@ -297,6 +387,7 @@ export class Run implements EffectHost {
     this.take(ids);
     this.score += score.total;
     this.money += score.money;
+    this.bestHand = Math.max(this.bestHand, score.total);
     this.handsLeft--;
     this.totalHandsPlayed++;
     for (const c of cards) this.playedThisAnte.add(c.id);
@@ -354,7 +445,18 @@ export class Run implements EffectHost {
     const cash = computeCashout(this.blind, this.handsLeft, this.money, jokerBonus, this.interestCap);
     cash.heldBonus = 3 * held.filter((c) => c.enhancement === 'gold').length;
     if (this.blind === 'boss') cash.tagBonus = 25 * this.consumeTags((t) => t === 'investment');
-    cash.total += cash.heldBonus + cash.tagBonus;
+    if (!this.rules.smallReward && this.blind === 'small') cash.blindReward = 0;
+    if (this.deckId === 'green') {
+      cash.handsBonus = 2 * this.handsLeft + this.discardsLeft;
+      cash.interest = 0;
+    }
+    if (this.deckId === 'anaglyph' && this.blind === 'boss') this.gainTag('double');
+    // Stickers: Rental cobra $3 por ronda; Perishable cuenta rondas.
+    for (const j of this.jokers) {
+      if (j.sticker === 'rental') cash.rental += 3;
+      if (j.sticker === 'perishable') j.rounds = (j.rounds ?? 0) + 1;
+    }
+    cash.total = cash.blindReward + cash.handsBonus + cash.interest + cash.jokerBonus + cash.heldBonus + cash.tagBonus - cash.rental;
     this.totalUnusedDiscards += this.discardsLeft;
     // Sello azul en mano: Planeta de la última mano jugada.
     const planet = PLANETS.find((p) => p.hand === lastHand);
@@ -368,10 +470,17 @@ export class Run implements EffectHost {
     this.expect('cashout');
     this.money += this.cashout!.total;
     this.cashout = null;
-    if (this.blind === 'boss' && this.ante >= MAX_ANTE) {
+    if (this.blind === 'boss' && this.ante >= MAX_ANTE && !this.endless) {
       this.phase = 'won';
       return;
     }
+    this.openShop();
+  }
+
+  /** Tras ganar: sigue jugando más allá del Ante 8 (Endless). */
+  continueEndless(): void {
+    this.expect('won');
+    this.endless = true;
     this.openShop();
   }
 
@@ -439,7 +548,7 @@ export class Run implements EffectHost {
   // ---------- Tienda ----------
 
   private rollCtx(): RollCtx {
-    return { handPlays: this.handPlays, vouchers: this.vouchers, ownedJokers: new Set(this.jokers.map((j) => j.id)) };
+    return { handPlays: this.handPlays, vouchers: this.vouchers, ownedJokers: new Set(this.jokers.map((j) => j.id)), spectralShop: this.spectralShop, stake: this.stake };
   }
 
   private get shopSlots(): number {
@@ -591,6 +700,7 @@ export class Run implements EffectHost {
     if (this.phase === 'won' || this.phase === 'lost') throw new Error('Run terminada');
     const i = this.jokers.findIndex((j) => j.uid === uid);
     if (i < 0) throw new Error('Joker no encontrado');
+    if (this.jokers[i].sticker === 'eternal') throw new Error('Un joker Eterno no se puede vender');
     this.money += sellValue(this.jokers[i]);
     this.jokers.splice(i, 1);
     // Verdant Leaf: vender un joker levanta el efecto.
@@ -622,13 +732,72 @@ export class Run implements EffectHost {
     this.jokers.splice(to, 0, j);
   }
 
+  // ---------- Guardado ----------
+
+  /** Solo se guarda entre rondas (selección de ciega o tienda sin pack abierto). */
+  get canSave(): boolean {
+    return this.phase === 'blind_select' || (this.phase === 'shop' && !this.openPack);
+  }
+
+  serialize(): RunSave {
+    const data: RunSave = {
+      v: 1,
+      seed: this.seed, deck: this.deckId, stake: this.stake, endless: this.endless,
+      phase: this.phase as 'blind_select' | 'shop',
+      ante: this.ante, blindIndex: this.blindIndex, money: this.money,
+      maxHands: this.maxHands, maxDiscards: this.maxDiscards, baseHandSize: this.baseHandSize,
+      handSizePenalty: this.handSizePenalty, skipped: this.skipped,
+      levels: this.levels, handPlays: this.handPlays,
+      jokers: this.jokers, consumables: this.consumables, vouchers: [...this.vouchers], tags: this.tags,
+      lastConsumed: this.lastConsumed, shop: this.shop, fullDeck: this.fullDeck,
+      discovered: [...this.discovered], bestHand: this.bestHand,
+      jokerSlotMod: this.jokerSlotMod, consumableSlotMod: this.consumableSlotMod, spectralShop: this.spectralShop,
+      internal: {
+        rng: this.rng.getState(), scoreRng: this.scoreRng.getState(),
+        nextUid: this.nextUid, nextCardId: this.nextCardId, rngCount: this.rngCount, shopCount: this.shopCount,
+        bosses: [...this.bossByAnte].map(([a, b]) => [a, b.id] as [number, string]),
+        bossRerolls: [...this.bossRerolls], seenBosses: [...this.seenBosses],
+        bossRerollsThisAnte: this.bossRerollsThisAnte, playedThisAnte: [...this.playedThisAnte],
+        totalHandsPlayed: this.totalHandsPlayed, totalUnusedDiscards: this.totalUnusedDiscards,
+      },
+    };
+    return JSON.parse(JSON.stringify(data)) as RunSave;
+  }
+
+  static restore(save: RunSave): Run {
+    if (save.v !== 1) throw new Error('Versión de guardado no soportada');
+    const d = JSON.parse(JSON.stringify(save)) as RunSave;
+    const r = new Run(d.seed, { deck: d.deck, stake: d.stake });
+    r.endless = d.endless;
+    r.phase = d.phase;
+    r.ante = d.ante; r.blindIndex = d.blindIndex; r.money = d.money;
+    r.maxHands = d.maxHands; r.maxDiscards = d.maxDiscards; r.baseHandSize = d.baseHandSize;
+    r.handSizePenalty = d.handSizePenalty; r.skipped = d.skipped;
+    r.levels = d.levels; r.handPlays = d.handPlays;
+    r.jokers = d.jokers; r.consumables = d.consumables; r.vouchers = new Set(d.vouchers); r.tags = d.tags;
+    r.lastConsumed = d.lastConsumed; r.shop = d.shop;
+    r.setDeck(d.fullDeck);
+    r.discovered = new Set(d.discovered); r.bestHand = d.bestHand;
+    r.jokerSlotMod = d.jokerSlotMod; r.consumableSlotMod = d.consumableSlotMod; r.spectralShop = d.spectralShop;
+    const i = d.internal;
+    r.rng.setState(i.rng); r.scoreRng.setState(i.scoreRng);
+    r.nextUid = i.nextUid; r.nextCardId = i.nextCardId; r.rngCount = i.rngCount; r.shopCount = i.shopCount;
+    r.bossByAnte = new Map(i.bosses.map(([a, id]) => [a, BOSSES[id]]));
+    r.bossRerolls = new Map(i.bossRerolls); r.seenBosses = new Set(i.seenBosses);
+    r.bossRerollsThisAnte = i.bossRerollsThisAnte; r.playedThisAnte = new Set(i.playedThisAnte);
+    r.totalHandsPlayed = i.totalHandsPlayed; r.totalUnusedDiscards = i.totalUnusedDiscards;
+    return r;
+  }
+
   // ---------- API para efectos (EffectHost) ----------
 
   addConsumable(kind: ConsumableKind, id: string, edition?: 'negative'): void {
+    this.discovered.add(id);
     this.consumables.push({ uid: this.nextUid++, id, kind, edition, cost: CONSUMABLES[id].cost });
   }
 
   addJoker(id: string, edition?: Edition): JokerInstance {
+    this.discovered.add(id);
     const j: JokerInstance = { uid: this.nextUid++, id, edition, cost: JOKERS[id].cost + (edition ? EDITION_COST[edition] : 0), state: {} };
     this.jokers.push(j);
     return j;
@@ -670,7 +839,12 @@ export class Run implements EffectHost {
 
   private gain(item: ShopItem) {
     switch (item.kind) {
-      case 'joker': this.addJoker(item.id, item.edition).cost = item.cost || JOKERS[item.id].cost; break;
+      case 'joker': {
+        const j = this.addJoker(item.id, item.edition);
+        j.cost = item.cost || JOKERS[item.id].cost;
+        if (item.sticker) j.sticker = item.sticker;
+        break;
+      }
       case 'card': this.addCard(item.card!, false); break;
       default: this.addConsumable(item.kind, item.id, item.edition === 'negative' ? 'negative' : undefined);
     }

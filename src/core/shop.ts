@@ -17,6 +17,7 @@ export interface CardTemplate {
 
 export interface ShopItem {
   kind: ShopKind;
+  sticker?: 'eternal' | 'perishable' | 'rental';
   id: string;
   edition?: Edition;
   cost: number;
@@ -69,6 +70,10 @@ export interface RollCtx {
   handPlays: Partial<Record<HandType, number>>;
   vouchers: Set<string>;
   ownedJokers: Set<string>;
+  /** Ghost Deck: aparecen Spectrals en la tienda. */
+  spectralShop?: boolean;
+  /** Stake actual (1-8): decide los stickers. */
+  stake?: number;
 }
 
 export function priceMul(vouchers: Set<string>): number {
@@ -101,7 +106,7 @@ export function rollJoker(
   rng: Rng,
   exclude: Set<string>,
   vouchers: Set<string> = new Set(),
-  opts: { rarity?: Rarity; edition?: Edition; noLegendary?: boolean } = {},
+  opts: { rarity?: Rarity; edition?: Edition; noLegendary?: boolean; stake?: number } = {},
 ): ShopItem | null {
   const rarity = opts.rarity ?? rollRarity(rng);
   let pool = JOKER_LIST.filter((d) => d.rarity === rarity && !exclude.has(d.id));
@@ -109,7 +114,19 @@ export function rollJoker(
   if (!pool.length) return null;
   const def = pool[rng.int(pool.length)];
   const edition = opts.edition ?? rollEdition(rng, editionMul(vouchers));
-  return { kind: 'joker', id: def.id, edition, cost: price(def.cost + (edition ? EDITION_COST[edition] : 0), vouchers) };
+  const item: ShopItem = { kind: 'joker', id: def.id, edition, cost: price(def.cost + (edition ? EDITION_COST[edition] : 0), vouchers) };
+  const stake = opts.stake ?? 1;
+  if (stake >= 4) {
+    // Stickers (30 %): Eternal (Stake 4+), Perishable (7+), Rental (8+).
+    const kinds: NonNullable<ShopItem['sticker']>[] = ['eternal'];
+    if (stake >= 7) kinds.push('perishable');
+    if (stake >= 8) kinds.push('rental');
+    if (rng.next() < 0.3) {
+      item.sticker = kinds[rng.int(kinds.length)];
+      if (item.sticker === 'rental') item.cost = 1;
+    }
+  }
+  return item;
 }
 
 export function legendaryJokerId(rng: Rng, exclude: Set<string>): string | null {
@@ -158,7 +175,7 @@ export function rollShopItem(rng: Rng, ctx: RollCtx, taken: Set<string>): ShopIt
   const tarotW = 4 * (v.has('tarot_tycoon') ? 8 : v.has('tarot_merchant') ? 2.4 : 1);
   const planetW = 4 * (v.has('planet_tycoon') ? 8 : v.has('planet_merchant') ? 2.4 : 1);
   const cardW = v.has('magic_trick') || v.has('illusion') ? 4 : 0;
-  const weights: [ShopKind, number][] = [['joker', 20], ['tarot', tarotW], ['planet', planetW], ['card', cardW]];
+  const weights: [ShopKind, number][] = [['joker', 20], ['tarot', tarotW], ['planet', planetW], ['card', cardW], ['spectral', ctx.spectralShop ? 2 : 0]];
   let r = rng.next() * weights.reduce((n, [, w]) => n + w, 0);
   let kind: ShopKind = 'joker';
   for (const [k, w] of weights) {
@@ -166,11 +183,12 @@ export function rollShopItem(rng: Rng, ctx: RollCtx, taken: Set<string>): ShopIt
     r -= w;
   }
   let item: ShopItem | null = null;
-  if (kind === 'joker') item = rollJoker(rng, taken, v);
+  if (kind === 'joker') item = rollJoker(rng, taken, v, { stake: ctx.stake });
+  else if (kind === 'spectral') item = rollSpectral(rng, new Set(), v);
   else if (kind === 'tarot') item = rollTarot(rng, new Set(), v);
   else if (kind === 'planet') item = rollPlanet(rng, ctx.handPlays, new Set(), v);
   else item = rollPlayingCard(rng, v, v.has('illusion'));
-  return item ?? rollJoker(rng, taken, v);
+  return item ?? rollJoker(rng, taken, v, { stake: ctx.stake });
 }
 
 export function rollPackOffer(rng: Rng): PackOffer {
@@ -206,7 +224,7 @@ export function openPackOf(rng: Rng, offer: { kind: PackKind; size: PackSize }, 
       }
       case 'spectral': it = rollSpectral(rng, free, v); break;
       case 'standard': it = rollPlayingCard(rng, v, true); break;
-      case 'buffoon': it = rollJoker(rng, taken, v); break;
+      case 'buffoon': it = rollJoker(rng, taken, v, { stake: ctx.stake }); break;
     }
     if (!it) continue;
     if (it.kind === 'joker') taken.add(it.id);

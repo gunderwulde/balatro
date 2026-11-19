@@ -32,7 +32,15 @@ export interface JokerInstance {
   cost: number;
   /** Estado para jokers que escalan (p. ej. `mult`). */
   state: Record<string, number>;
+  /** Stickers de Stake alto. */
+  sticker?: 'eternal' | 'perishable' | 'rental';
+  /** Rondas jugadas con el joker (Perishable se debilita a las 5). */
+  rounds?: number;
 }
+
+export const PERISHABLE_ROUNDS = 5;
+/** Un joker Perishable agotado deja de funcionar. */
+export const jokerActive = (j: JokerInstance): boolean => !(j.sticker === 'perishable' && (j.rounds ?? 0) >= PERISHABLE_ROUNDS);
 
 export interface JokerDef {
   id: string;

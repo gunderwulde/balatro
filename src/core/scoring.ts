@@ -1,6 +1,6 @@
 import { cardChips, type Card } from './cards';
 import { evaluateHand, type HandType } from './hands';
-import { JOKERS, type Effect, type JokerInstance, type ScoreCtx } from './jokers';
+import { JOKERS, jokerActive, type Effect, type JokerInstance, type ScoreCtx } from './jokers';
 
 interface HandBase { chips: number; mult: number; chipsPerLevel: number; multPerLevel: number }
 
@@ -46,7 +46,8 @@ export type EventSource =
   | { kind: 'joker'; id: number }
   | { kind: 'edition'; id: number }
   | { kind: 'held'; id: number }
-  | { kind: 'planet'; id: number };
+  | { kind: 'planet'; id: number }
+  | { kind: 'deck'; id: number };
 
 export type ScoreEvent =
   | { type: 'hand'; hand: HandType; chips: number; mult: number }
@@ -84,6 +85,8 @@ export interface ScoreOptions {
   disabledJoker?: number | null;
   /** Manos cuyo Planeta tienes en consumibles (Observatory). */
   planetHands?: Set<HandType>;
+  /** Plasma Deck: iguala fichas y mult al final. */
+  balance?: boolean;
 }
 
 export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
@@ -109,7 +112,7 @@ export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
  */
 export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult {
   const ctx = makeCtx(played, opts);
-  const jokers = (opts.jokers ?? []).filter((j) => j.uid !== opts.disabledJoker);
+  const jokers = (opts.jokers ?? []).filter((j) => j.uid !== opts.disabledJoker && jokerActive(j));
   const rng = opts.rng ?? (() => 1);
   const debuffed = opts.debuff ?? (() => false);
   const base = handStats(ctx.handType, opts.levels?.[ctx.handType] ?? 1);
@@ -174,6 +177,13 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
   }
 
   if (opts.planetHands?.has(ctx.handType)) push('xmult', OBSERVATORY_XMULT, { kind: 'planet', id: 0 });
+
+  if (opts.balance) {
+    const avg = Math.floor((chips + mult) / 2);
+    const src: EventSource = { kind: 'deck', id: 0 };
+    if (avg !== chips) push('chips', avg - chips, src);
+    if (avg !== mult) push('mult', avg - mult, src);
+  }
 
   return { hand: ctx.handType, chips, mult, total: Math.floor(chips * mult), scoring: ctx.scoring, events, money, destroyed };
 }

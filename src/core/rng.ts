@@ -13,6 +13,13 @@ export class Rng {
   constructor(seed: string) {
     this.state = hashSeed(seed);
   }
+  /** Estado interno (para guardar la partida). */
+  getState(): number {
+    return this.state;
+  }
+  setState(s: number): void {
+    this.state = s >>> 0;
+  }
   next(): number {
     this.state = (this.state + 0x6d2b79f5) >>> 0;
     let t = this.state;

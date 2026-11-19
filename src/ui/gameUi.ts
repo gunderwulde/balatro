@@ -10,7 +10,7 @@ import { rankLabel } from '../core/cards';
 import { EDITION_TEXT, JOKER_TEXT, PLANET_TEXT } from '../i18n/content.es';
 import {
   BOSS_TEXT, ENHANCEMENT_TEXT, MSG_TEXT, PACK_DESC, PACK_KIND_NAME, PACK_SIZE_NAME, SEAL_TEXT,
-  SPECTRAL_TEXT, TAG_TEXT, TAROT_TEXT, VOUCHER_TEXT,
+  SPECTRAL_TEXT, STICKER_TEXT, TAG_TEXT, TAROT_TEXT, VOUCHER_TEXT,
 } from '../i18n/content2.es';
 import { BLIND_NAME, HAND_NAME } from '../i18n/es';
 import { cardFaceUrl } from '../render/cardArt';
@@ -50,7 +50,7 @@ export class GameUI {
   constructor(
     private run: Run,
     private table: Table,
-    private cb: { onExit(): void; onRestart(): void },
+    private cb: { onExit(): void; onRestart(): void; onSync?(run: Run): void },
   ) {
     this.root.className = 'game-ui';
     document.body.appendChild(this.root);
@@ -70,6 +70,7 @@ export class GameUI {
   /** Reconstruye la UI según la fase de la run. */
   refresh(): void {
     const r = this.run;
+    this.cb.onSync?.(r);
     this.shownScore = r.score;
     if (this.selJoker !== null && !r.jokers.some((j) => j.uid === this.selJoker)) this.selJoker = null;
     if (this.selCons !== null && !r.consumables.some((c) => c.uid === this.selCons)) this.selCons = null;
@@ -127,7 +128,7 @@ export class GameUI {
       </div>
       <div class="stat-box gold">Dinero<b id="money">$${r.money}</b></div>
       <div class="stat-row">
-        <div class="stat-box">Ante<b>${r.ante}/${MAX_ANTE}</b></div>
+        <div class="stat-box">Ante<b>${r.endless ? r.ante : `${r.ante}/${MAX_ANTE}`}</b></div>
         <div class="stat-box">Mazo<b id="deck-left">${r.drawPile.length}/${r.fullDeck.length}</b></div>
       </div>
     </aside>`;
@@ -169,12 +170,20 @@ export class GameUI {
     const text = JOKER_TEXT[j.id];
     const extra = j.state.mult !== undefined ? `<p class="cur">Actual: +${j.state.mult} Mult</p>` : '';
     const ed = j.edition ? `<p class="ed">${EDITION_TEXT[j.edition].name}: ${EDITION_TEXT[j.edition].desc}</p>` : '';
-    const tip = `<b>${text.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${text.desc}</p>${extra}${ed}<p class="sell">Venta: $${sellValue(j)}</p>`;
+    const tip = `<b>${text.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${text.desc}</p>${extra}${ed}<p class="sell">Venta: ${sellValue(j)}</p>${this.stickerTip(j.sticker)}`;
     const dis = this.run.disabledJoker === j.uid ? 'disabled-joker' : '';
     return `<div class="icard joker ${j.edition ? 'ed-' + j.edition : ''} ${dis} ${this.selJoker === j.uid ? 'sel' : ''}"
         draggable="true" data-uid="${j.uid}" data-index="${index}" data-act="joker">
-        <img src="${jokerArt(j.id, def.rarity)}" alt="${text.name}" draggable="false"/><i class="fx"></i>
+        <img src="${jokerArt(j.id, def.rarity)}" alt="${text.name}" draggable="false"/><i class="fx"></i>${this.stickerBadge(j.sticker)}
         <div class="tip">${tip}</div></div>`;
+  }
+
+  private stickerBadge(st?: string): string {
+    return st ? `<span class="sticker ${st}">${STICKER_TEXT[st].name}</span>` : '';
+  }
+
+  private stickerTip(st?: string): string {
+    return st ? `<p class="ed">${STICKER_TEXT[st].name}: ${STICKER_TEXT[st].desc}</p>` : '';
   }
 
   private consumableCard(c: ConsumableInstance): string {
@@ -227,7 +236,7 @@ export class GameUI {
 
   private itemCard(item: ShopItem): string {
     const d = this.describe(item.kind, item.id, item.edition, item.card);
-    return `<div class="icard ${d.edClass}"><img src="${d.img}" draggable="false"/><i class="fx"></i><div class="tip">${d.tip}</div></div>`;
+    return `<div class="icard ${d.edClass}"><img src="${d.img}" draggable="false"/><i class="fx"></i>${this.stickerBadge(item.sticker)}<div class="tip">${d.tip}${this.stickerTip(item.sticker)}</div></div>`;
   }
 
   private noRoom(item: ShopItem): boolean {
@@ -271,7 +280,7 @@ export class GameUI {
         ${buttons}
       </div>`;
     }).join('');
-    return `<div class="overlay"><h2>Ante ${r.ante} / ${MAX_ANTE}</h2><div class="blind-options">${cards}</div></div>`;
+    return `<div class="overlay"><h2>Ante ${r.endless ? r.ante : `${r.ante} / ${MAX_ANTE}`}</h2><div class="blind-options">${cards}</div></div>`;
   }
 
   /** Línea con el Tag que daría saltar esa ciega (solo se conoce el de la ciega actual). */
@@ -292,7 +301,8 @@ export class GameUI {
       ${c.jokerBonus ? `<div class="stat-line">Jokers<b>$${c.jokerBonus}</b></div>` : ''}
       ${c.heldBonus ? `<div class="stat-line">Cartas de oro<b>$${c.heldBonus}</b></div>` : ''}
       ${c.tagBonus ? `<div class="stat-line">Tag Inversión<b>$${c.tagBonus}</b></div>` : ''}
-      <div class="stat-line total">Total<b>$${c.total}</b></div>
+      ${c.rental ? `<div class="stat-line">Alquileres<b>-${c.rental}</b></div>` : ''}
+      <div class="stat-line total">Total<b>${c.total}</b></div>
       <button class="btn btn-orange" data-act="collect">Cobrar $${c.total}</button>
     </div></div>`;
   }
@@ -376,8 +386,10 @@ export class GameUI {
       <h2>${won ? '¡Has ganado la run!' : 'Has perdido'}</h2>
       <div class="stat-line">Ante alcanzado<b>${this.run.ante}</b></div>
       <div class="stat-line">Semilla<b>${this.run.seed}</b></div>
+      <div class="stat-line">Mejor mano<b>${fmt(this.run.bestHand)}</b></div>
       <div class="row">
         <button class="btn btn-red" data-act="exit">Menú</button>
+        ${won ? '<button class="btn btn-orange" data-act="endless">Seguir (Endless)</button>' : ''}
         <button class="btn btn-blue" data-act="restart">Otra run</button>
       </div>
     </div></div>`;
@@ -439,6 +451,7 @@ export class GameUI {
       switch (a) {
         case 'exit': return this.cb.onExit();
         case 'restart': return this.cb.onRestart();
+        case 'endless': r.continueEndless(); break;
         case 'select': r.selectBlind(); this.table.sync(); break;
         case 'skip': r.skipBlind(); break;
         case 'rerollboss': r.rerollBoss(); break;

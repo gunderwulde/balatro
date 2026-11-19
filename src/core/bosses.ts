@@ -73,8 +73,8 @@ export const BOSSES: Record<string, BossDef> = Object.fromEntries(BOSS_LIST.map(
 
 /** Elige el Boss de un Ante: finalistas en el Ante 8, normales antes; evita repetir los ya vistos si puede. */
 export function pickBoss(rng: Rng, ante: number, seen: Set<string>, exclude?: string): BossDef {
-  const finisher = ante >= 8;
-  let pool = BOSS_LIST.filter((b) => !!b.finisher === finisher && b.minAnte <= ante && b.id !== exclude);
+  const finisher = ante % 8 === 0;
+  let pool = BOSS_LIST.filter((b) => !!b.finisher === finisher && b.minAnte <= Math.min(ante, 8) && b.id !== exclude);
   const fresh = pool.filter((b) => !seen.has(b.id));
   if (fresh.length) pool = fresh;
   return pool[rng.int(pool.length)];

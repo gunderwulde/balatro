@@ -6,10 +6,12 @@ import type { Card } from './core/cards';
 import { Background, PALETTES } from './render/background';
 import { PostFx } from './render/crt';
 import { Table, makeCardMesh } from './render/table';
+import { mergeProgress, recordEnd } from './core/profile';
 import { Run } from './core/run';
 import { GameUI } from './ui/gameUi';
 import { MainMenu, randomSeed } from './ui/menu';
 import type { Settings } from './ui/settings';
+import { clearRunSave, loadProfile, loadRunSave, saveProfile, saveRun } from './ui/storage';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -54,20 +56,47 @@ let reduceMotion = false;
 const pointer = new THREE.Vector2();
 addEventListener('pointermove', (e) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1));
 
-function startGame(seed: string) {
+function begin(run: Run) {
   table?.dispose();
   ui?.dispose();
   menu.hide();
   mode = 'game';
   menuCards.visible = false;
   bg.setPalette(PALETTES.table);
-  const run = new Run(seed);
+  let recorded = false;
+  // Autoguardado y perfil: se ejecuta en cada cambio de fase.
+  const sync = (r: Run) => {
+    const done = r.phase === 'won' || r.phase === 'lost';
+    if (done && !recorded) {
+      recorded = true;
+      saveProfile(recordEnd(loadProfile(), r, r.phase === 'won'));
+    } else {
+      saveProfile(mergeProgress(loadProfile(), r));
+    }
+    if (done) clearRunSave();
+    else if (r.canSave) saveRun(r.serialize());
+  };
   table = new Table(scene, camera, renderer.domElement, run);
-  ui = new GameUI(run, table, { onExit: exitToMenu, onRestart: () => startGame(randomSeed()) });
+  ui = new GameUI(run, table, {
+    onExit: exitToMenu,
+    onRestart: () => startGame(randomSeed(), run.deckId, run.stake),
+    onSync: sync,
+  });
+}
+
+function startGame(seed: string, deck: string, stake: number) {
+  clearRunSave();
+  begin(new Run(seed, { deck, stake }));
+}
+
+function continueGame() {
+  const save = loadRunSave();
+  if (save) begin(Run.restore(save));
 }
 
 const menu = new MainMenu({
   onStart: startGame,
+  onContinue: continueGame,
   onSettings(s: Settings) {
     post.setCrt(s.scanlines);
     reduceMotion = s.reduceMotion;

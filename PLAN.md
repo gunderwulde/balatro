@@ -53,11 +53,12 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - **Entregable:** loop de run completo equivalente al juego base (contenido parcial).
 
 ## Fase 6 — Mazos, Stakes y meta (3–4 días)
-- [ ] 15 mazos con sus modificadores; selección al iniciar.
-- [ ] 8 Stakes acumulativos + stickers (Eternal/Perishable/Rental).
-- [ ] Guardado/continuar run, estadísticas, colección, desbloqueos.
-- [ ] Endless (Ante 9+).
+- [x] 15 mazos con sus modificadores; selección al iniciar.
+- [x] 8 Stakes acumulativos + stickers (Eternal/Perishable/Rental).
+- [x] Guardado/continuar run, estadísticas, colección, desbloqueos.
+- [x] Endless (Ante 9+).
 - **Entregable:** meta-progresión funcionando y persistida.
+- **Notas de implementación:** mazos en `core/decks.ts`, Stakes y stickers en `core/stakes.ts`, perfil puro en `core/profile.ts` (E/S en `ui/storage.ts`). Se guarda solo entre rondas (selección de ciega y tienda). Los desbloqueos son de Stakes por mazo (los mazos están todos disponibles). Endless: el objetivo post-Ante 8 es una aproximación. Visuales sin verificar en navegador.
 
 ## Fase 7 — Contenido completo (iterativo, 1–2 semanas)
 - [ ] Completar 150 jokers por lotes de ~20 (con test cada uno).

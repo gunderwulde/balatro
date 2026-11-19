@@ -173,3 +173,38 @@ export const MSG_TEXT: Record<string, string> = {
   boss_repeat: 'El Ojo: ya jugaste ese tipo de mano',
   boss_single: 'La Boca: solo un tipo de mano esta ronda',
 };
+
+export const DECK_TEXT: Record<string, Text> = {
+  red: { name: 'Mazo Rojo', desc: '+1 descarte por ronda' },
+  blue: { name: 'Mazo Azul', desc: '+1 mano por ronda' },
+  yellow: { name: 'Mazo Amarillo', desc: 'Empiezas con +$10' },
+  green: { name: 'Mazo Verde', desc: 'Al final de la ronda: $2 por mano y $1 por descarte sobrantes; sin interés' },
+  black: { name: 'Mazo Negro', desc: '+1 espacio de Joker, -1 mano por ronda' },
+  magic: { name: 'Mazo Mágico', desc: 'Empiezas con Bola de cristal y 2 El Loco' },
+  nebula: { name: 'Mazo Nebulosa', desc: 'Empiezas con Telescopio, -1 espacio de consumible' },
+  ghost: { name: 'Mazo Fantasma', desc: 'Aparecen Spectrals en la tienda; empiezas con Maleficio' },
+  abandoned: { name: 'Mazo Abandonado', desc: 'Sin figuras (40 cartas)' },
+  checkered: { name: 'Mazo de Damas', desc: '26 Picas y 26 Corazones' },
+  zodiac: { name: 'Mazo Zodiaco', desc: 'Empiezas con Mercader de Tarots, Mercader de Planetas y Excedentes' },
+  painted: { name: 'Mazo Pintado', desc: '+2 tamaño de mano, -1 espacio de Joker' },
+  anaglyph: { name: 'Mazo Anaglifo', desc: 'Tras vencer a un Boss, ganas un Tag Doble' },
+  plasma: { name: 'Mazo Plasma', desc: 'Equilibra Fichas y Mult al puntuar; objetivos ×2' },
+  erratic: { name: 'Mazo Errático', desc: 'Todas las cartas tienen rango y palo aleatorios' },
+};
+
+export const STAKE_TEXT: Record<string, Text> = {
+  white: { name: 'Blanco', desc: 'Dificultad base' },
+  red: { name: 'Rojo', desc: 'La ciega Small no da recompensa' },
+  green: { name: 'Verde', desc: 'Los objetivos suben más rápido' },
+  black: { name: 'Negro', desc: 'Jokers Eternos (no se pueden vender) en la tienda' },
+  blue: { name: 'Azul', desc: '-1 descarte' },
+  purple: { name: 'Púrpura', desc: 'Los objetivos suben aún más rápido' },
+  orange: { name: 'Naranja', desc: 'Jokers Perecederos (se agotan a las 5 rondas)' },
+  gold: { name: 'Dorado', desc: 'Jokers de Alquiler ($3 por ronda)' },
+};
+
+export const STICKER_TEXT: Record<string, Text> = {
+  eternal: { name: 'Eterno', desc: 'No se puede vender' },
+  perishable: { name: 'Perecedero', desc: 'Se agota tras 5 rondas' },
+  rental: { name: 'Alquiler', desc: 'Cuesta $3 al final de cada ronda' },
+};
