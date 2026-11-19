@@ -502,22 +502,36 @@ export class GameUI {
     this.table.enabled = false;
     this.disableActions(true);
     const prevScore = this.run.score;
+    let res: ReturnType<Run['play']>;
+    try {
+      res = this.run.play(cards.map((c) => c.id));
+    } catch (err) {
+      this.busy = false;
+      this.refresh();
+      this.toast(err instanceof Error ? err.message : String(err));
+      return;
+    }
     this.table.sendAway(cards, 'play', performance.now());
-    const res = this.run.play(cards.map((c) => c.id));
     this.table.sync();
     this.setText('hands-left', String(this.run.handsLeft));
     this.setText('deck-left', `${this.run.drawPile.length}/${this.run.fullDeck.length}`);
 
-    await this.animateScore(res.score);
-    if (this.disposed) return;
-    this.shownScore = prevScore;
-    await this.countUp(this.run.score);
-    this.setText('money', `$${this.run.money}`);
-    if (res.score.destroyed.length) this.toast('¡Se ha roto una carta de cristal!');
-    await sleep(500);
-    if (this.disposed) return;
-    this.busy = false;
-    this.refresh();
+    try {
+      await this.animateScore(res.score);
+      if (this.disposed) return;
+      this.shownScore = prevScore;
+      await this.countUp(this.run.score);
+      this.setText('money', `$${this.run.money}`);
+      if (res.score.destroyed.length) this.toast('¡Se ha roto una carta de cristal!');
+      await sleep(500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!this.disposed) {
+        this.busy = false;
+        this.refresh();
+      }
+    }
   }
 
   private async animateScore(score: ScoreResult) {

@@ -5,6 +5,8 @@ import { backTexture, CARD_H, CARD_W, cardKey, faceTexture } from './cardArt';
 
 export const CW = CARD_W / 32;
 export const CH = CARD_H / 32;
+/** Escala de las cartas en la mesa de juego. */
+export const TABLE_SCALE = 0.75;
 
 export function makeCardMesh(card: Card): THREE.Group {
   const g = new THREE.Group();
@@ -87,6 +89,7 @@ export class Table {
   private makePile(): THREE.Group {
     const p = makeCardMesh({ id: -1, rank: 14, suit: 'S' });
     p.children[0].visible = false;
+    p.scale.setScalar(TABLE_SCALE);
     p.rotation.y = Math.PI;
     return p;
   }
@@ -164,6 +167,7 @@ export class Table {
         return existing;
       }
       const group = makeCardMesh(card);
+      group.scale.setScalar(TABLE_SCALE);
       group.position.copy(this.pilePos);
       group.rotation.y = Math.PI;
       this.root.add(group);
@@ -186,7 +190,7 @@ export class Table {
       if (mode === 'play') {
         this.leaving.push({
           group: o.group,
-          target: new THREE.Vector3(k * (CW * 0.85), 0.9, 1 + i * 0.01),
+          target: new THREE.Vector3(k * (CW * TABLE_SCALE * 0.85), 0.9, 1 + i * 0.01),
           until: now + 1100,
           after: this.discardPos.clone(),
         });
@@ -198,15 +202,15 @@ export class Table {
 
   layout(): void {
     const n = this.objs.length;
-    const spacing = Math.min(CW * 0.7, (this.camera.aspect * 7.2 * 0.9) / Math.max(n, 1));
+    const spacing = Math.min(CW * TABLE_SCALE * 0.7, (this.camera.aspect * 7.2 * 0.9) / Math.max(n, 1));
     this.objs.forEach((o, i) => {
       const k = i - (n - 1) / 2;
-      o.base.set(k * spacing, -2.5 - k * k * 0.04, i * 0.01);
+      o.base.set(k * spacing, -2.7 - k * k * 0.03, i * 0.01);
       o.baseRot = -k * 0.04;
     });
     const edge = this.camera.aspect * 7.56 * 0.5 * 0.86;
-    this.pilePos.set(edge, -2.5, 0);
-    this.discardPos.set(-edge, -2.5, 0);
+    this.pilePos.set(edge, -2.7, 0);
+    this.discardPos.set(-edge, -2.7, 0);
     this.drawPileMesh.position.copy(this.pilePos);
     this.discardPileMesh.position.copy(this.discardPos);
     this.updatePiles();
