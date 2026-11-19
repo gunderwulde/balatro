@@ -6,6 +6,7 @@ import { Background, PALETTES } from './render/background';
 import { setHighContrast } from './render/cardArt';
 import { PostFx } from './render/crt';
 import { Table, makeCardMesh } from './render/table';
+import { setLang } from './i18n';
 import { mergeProgress, recordEnd } from './core/profile';
 import { Run } from './core/run';
 import { GameUI } from './ui/gameUi';
@@ -100,6 +101,8 @@ const menu = new MainMenu({
   onContinue: continueGame,
   onSettings(s: Settings) {
     post.setCrt(s.scanlines);
+    setLang(s.lang);
+    document.documentElement.lang = s.lang;
     reduceMotion = s.reduceMotion;
     document.documentElement.dataset.rm = s.reduceMotion ? '1' : '0';
     setVolumes(s.music, s.sfx);

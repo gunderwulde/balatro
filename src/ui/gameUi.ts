@@ -13,19 +13,20 @@ import {
   SPECTRAL_TEXT, STICKER_TEXT, TAG_TEXT, TAROT_TEXT, VOUCHER_TEXT,
 } from '../i18n/content2.es';
 import { BLIND_NAME, HAND_NAME } from '../i18n/es';
+import { fmtNum, t } from '../i18n';
 import { cardFaceUrl } from '../render/cardArt';
 import { chipArt, consumableArt, jokerArt, packArt, voucherArt } from '../render/itemArt';
 import type { Table } from '../render/table';
 
-const RARITY_NAME: Record<Rarity, string> = { common: 'Común', uncommon: 'Poco común', rare: 'Rara', legendary: 'Legendaria' };
-const SUIT_NAME = { S: 'Picas', H: 'Corazones', D: 'Diamantes', C: 'Tréboles' } as const;
+const rarityName = (r: Rarity) => t({ common: 'Común', uncommon: 'Poco común', rare: 'Rara', legendary: 'Legendaria' }[r]);
+const suitName = (s: 'S' | 'H' | 'D' | 'C') => t({ S: 'Picas', H: 'Corazones', D: 'Diamantes', C: 'Tréboles' }[s]);
 const HAND_ORDER: HandType[] = [
   'flush_five', 'flush_house', 'five_kind', 'straight_flush', 'four_kind', 'full_house',
   'flush', 'straight', 'three_kind', 'two_pair', 'pair', 'high_card',
 ];
 const SECRET: HandType[] = ['five_kind', 'flush_house', 'flush_five'];
 
-const fmt = (n: number) => n.toLocaleString('es-ES');
+const fmt = (n: number) => fmtNum(n);
 import { sfx } from '../audio/audio';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -139,27 +140,27 @@ export class GameUI {
     return `
     <aside class="side">
       <div class="side-top">
-        <button class="table-back" data-act="exit">☰ Menú</button>
-        <button class="table-back info" data-act="hands">Manos</button>
+        <button class="table-back" data-act="exit">☰ ${t('Menú')}</button>
+        <button class="table-back info" data-act="hands">${t('Manos')}</button>
       </div>
       <div class="blind-card blind-${r.blind}">
         <div class="blind-name">${boss ? boss.name : BLIND_NAME[r.blind]}</div>
-        ${boss ? `<div class="boss-desc ${bossOff ? 'off' : ''}">${boss.desc}${bossOff ? ' (anulado)' : ''}</div>` : ''}
-        <div class="stat-line">Objetivo <b>${fmt(r.target)}</b></div>
+        ${boss ? `<div class="boss-desc ${bossOff ? 'off' : ''}">${boss.desc}${bossOff ? t(' (anulado)') : ''}</div>` : ''}
+        <div class="stat-line">${t('Objetivo')} <b>${fmt(r.target)}</b></div>
       </div>
       ${tags ? `<div class="tag-row">${tags}</div>` : ''}
-      <div class="stat-box">Puntos de la ronda<b id="round-score">${fmt(inBlind ? r.score : 0)}</b></div>
+      <div class="stat-box">${t('Puntos de la ronda')}<b id="round-score">${fmt(inBlind ? r.score : 0)}</b></div>
       <div class="stat-box preview"><span id="pv-name">&nbsp;</span>
         <div class="pv-nums"><span class="chips" id="pv-chips">0</span><i>×</i><span class="mult" id="pv-mult">0</span></div>
       </div>
       <div class="stat-row">
-        <div class="stat-box blue">Manos<b id="hands-left">${r.handsLeft}</b></div>
-        <div class="stat-box red">Descartes<b id="discards-left">${r.discardsLeft}</b></div>
+        <div class="stat-box blue">${t('Manos')}<b id="hands-left">${r.handsLeft}</b></div>
+        <div class="stat-box red">${t('Descartes')}<b id="discards-left">${r.discardsLeft}</b></div>
       </div>
-      <div class="stat-box gold">Dinero<b id="money">$${r.money}</b></div>
+      <div class="stat-box gold">${t('Dinero')}<b id="money">$${r.money}</b></div>
       <div class="stat-row">
-        <div class="stat-box">Ante<b>${r.endless ? r.ante : `${r.ante}/${MAX_ANTE}`}</b></div>
-        <div class="stat-box">Mazo<b id="deck-left">${r.drawPile.length}/${r.fullDeck.length}</b></div>
+        <div class="stat-box">${t('Ante')}<b>${r.endless ? r.ante : `${r.ante}/${MAX_ANTE}`}</b></div>
+        <div class="stat-box">${t('Mazo')}<b id="deck-left">${r.drawPile.length}/${r.fullDeck.length}</b></div>
       </div>
     </aside>`;
   }
@@ -171,9 +172,9 @@ export class GameUI {
     return `
     <div class="jokers-bar">
       <div class="jokers-head"><span>Jokers ${r.jokers.length}/${r.jokerSlots}</span>
-        ${sel ? `<button class="mini-btn" data-act="sell" data-uid="${sel.uid}">Vender +$${sellValue(sel)}</button>` : '<small>Arrastra para reordenar · el orden importa</small>'}
+        ${sel ? `<button class="mini-btn" data-act="sell" data-uid="${sel.uid}">${t('Vender')} +$${sellValue(sel)}</button>` : `<small>${t('Arrastra para reordenar · el orden importa')}</small>`}
       </div>
-      <div class="jokers-row">${cards || '<div class="empty-slot">Sin jokers</div>'}</div>
+      <div class="jokers-row">${cards || `<div class="empty-slot">${t('Sin jokers')}</div>`}</div>
     </div>`;
   }
 
@@ -181,26 +182,26 @@ export class GameUI {
     const r = this.run;
     const cards = r.consumables.map((c) => this.consumableCard(c)).join('');
     const sel = r.consumables.find((c) => c.uid === this.selCons);
-    let actions = '<small>Consumibles</small>';
+    let actions = `<small>${t('Consumibles')}</small>`;
     if (sel) {
       const def = CONSUMABLES[sel.id];
       const canUse = !(def.needsHand && r.phase !== 'playing');
-      actions = `${canUse ? `<button class="mini-btn" data-act="use" data-uid="${sel.uid}">Usar</button>` : ''}
-        <button class="mini-btn alt" data-act="sellcons" data-uid="${sel.uid}">Vender +$${Math.max(1, Math.floor(sel.cost / 2))}</button>`;
+      actions = `${canUse ? `<button class="mini-btn" data-act="use" data-uid="${sel.uid}">${t('Usar')}</button>` : ''}
+        <button class="mini-btn alt" data-act="sellcons" data-uid="${sel.uid}">${t('Vender')} +$${Math.max(1, Math.floor(sel.cost / 2))}</button>`;
     }
     return `
     <div class="cons-bar">
       <div class="jokers-head"><span>${r.consumables.length}/${r.consumableSlots}</span>${actions}</div>
-      <div class="jokers-row">${cards || '<div class="empty-slot">Vacío</div>'}</div>
+      <div class="jokers-row">${cards || `<div class="empty-slot">${t('Vacío')}</div>`}</div>
     </div>`;
   }
 
   private jokerCard(j: JokerInstance, index: number): string {
     const def = JOKERS[j.id];
     const text = JOKER_TEXT[j.id];
-    const extra = j.state.mult !== undefined ? `<p class="cur">Actual: +${j.state.mult} Mult</p>` : '';
+    const extra = j.state.mult !== undefined ? `<p class="cur">${t('Actual')}: +${j.state.mult} Mult</p>` : '';
     const ed = j.edition ? `<p class="ed">${EDITION_TEXT[j.edition].name}: ${EDITION_TEXT[j.edition].desc}</p>` : '';
-    const tip = `<b>${text.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${text.desc}</p>${extra}${ed}<p class="sell">Venta: ${sellValue(j)}</p>${this.stickerTip(j.sticker)}`;
+    const tip = `<b>${text.name}</b><span class="rar r-${def.rarity}">${rarityName(def.rarity)}</span><p>${text.desc}</p>${extra}${ed}<p class="sell">${t('Venta')}: ${sellValue(j)}</p>${this.stickerTip(j.sticker)}`;
     const dis = this.run.disabledJoker === j.uid ? 'disabled-joker' : '';
     return `<div class="icard joker ${j.edition ? 'ed-' + j.edition : ''} ${dis} ${this.selJoker === j.uid ? 'sel' : ''}"
         draggable="true" data-uid="${j.uid}" data-index="${index}" data-act="joker">
@@ -219,7 +220,7 @@ export class GameUI {
   private consumableCard(c: ConsumableInstance): string {
     const d = this.describe(c.kind, c.id, c.edition);
     return `<div class="icard ${d.edClass} ${this.selCons === c.uid ? 'sel' : ''}" data-act="cons" data-uid="${c.uid}">
-      <img src="${d.img}" draggable="false"/><i class="fx"></i><div class="tip">${d.tip}<p class="sell">Venta: $${Math.max(1, Math.floor(c.cost / 2))}</p></div></div>`;
+      <img src="${d.img}" draggable="false"/><i class="fx"></i><div class="tip">${d.tip}<p class="sell">${t('Venta')}: $${Math.max(1, Math.floor(c.cost / 2))}</p></div></div>`;
   }
 
   /** Imagen, tooltip y clase de edición de cualquier objeto de tienda/pack/inventario. */
@@ -229,8 +230,8 @@ export class GameUI {
     switch (kind) {
       case 'joker': {
         const def = JOKERS[id];
-        const t = JOKER_TEXT[id];
-        return { img: jokerArt(id, def.rarity), edClass, tip: `<b>${t.name}</b><span class="rar r-${def.rarity}">${RARITY_NAME[def.rarity]}</span><p>${t.desc}</p>${edText}` };
+        const tx = JOKER_TEXT[id];
+        return { img: jokerArt(id, def.rarity), edClass, tip: `<b>${tx.name}</b><span class="rar r-${def.rarity}">${rarityName(def.rarity)}</span><p>${tx.desc}</p>${edText}` };
       }
       case 'planet': {
         const hand = PLANET_BY_ID[id].hand;
@@ -239,15 +240,15 @@ export class GameUI {
         const b = handStats(hand, lvl + 1);
         return {
           img: consumableArt(id, 'planet'), edClass,
-          tip: `<b>${PLANET_TEXT[id]}</b><span class="rar r-planet">Planeta</span><p>${HAND_NAME[hand]}: Nv.${lvl} → Nv.${lvl + 1}</p><p>+${b.chips - a.chips} Fichas, +${b.mult - a.mult} Mult</p>${edText}`,
+          tip: `<b>${PLANET_TEXT[id]}</b><span class="rar r-planet">${t('Planeta')}</span><p>${HAND_NAME[hand]}: ${t('Nv.')}${lvl} → ${t('Nv.')}${lvl + 1}</p><p>+${b.chips - a.chips} ${t('Fichas')}, +${b.mult - a.mult} Mult</p>${edText}`,
         };
       }
       case 'tarot':
       case 'spectral': {
-        const t = kind === 'tarot' ? TAROT_TEXT[id] : SPECTRAL_TEXT[id];
+        const tx = kind === 'tarot' ? TAROT_TEXT[id] : SPECTRAL_TEXT[id];
         const def = CONSUMABLES[id];
-        const need = def.min ? `<p class="cur">Selecciona ${def.min === def.max ? def.min : `${def.min}-${def.max}`} carta(s) de tu mano</p>` : '';
-        return { img: consumableArt(id, kind), edClass, tip: `<b>${t.name}</b><span class="rar r-${kind}">${kind === 'tarot' ? 'Tarot' : 'Spectral'}</span><p>${t.desc}</p>${need}${edText}` };
+        const need = def.min ? `<p class="cur">${t('Selecciona {0} carta(s) de tu mano', def.min === def.max ? def.min : `${def.min}-${def.max}`)}</p>` : '';
+        return { img: consumableArt(id, kind), edClass, tip: `<b>${tx.name}</b><span class="rar r-${kind}">${kind === 'tarot' ? 'Tarot' : 'Spectral'}</span><p>${tx.desc}</p>${need}${edText}` };
       }
       default: {
         const c = card!;
@@ -258,7 +259,7 @@ export class GameUI {
         ].filter(Boolean).join('');
         return {
           img: cardFaceUrl({ id: -1, ...c }), edClass: '',
-          tip: `<b>${rankLabel(c.rank)} de ${SUIT_NAME[c.suit]}</b><span class="rar r-planet">Carta</span><p>Se añade a tu mazo</p>${extras}`,
+          tip: `<b>${t('{0} de {1}', rankLabel(c.rank), suitName(c.suit))}</b><span class="rar r-planet">${t('Carta')}</span><p>${t('Se añade a tu mazo')}</p>${extras}`,
         };
       }
     }
@@ -277,14 +278,14 @@ export class GameUI {
   }
 
   private packName(kind: PackKind, size: PackSize): string {
-    return `Pack ${PACK_SIZE_NAME[size]}${PACK_KIND_NAME[kind]}`;
+    return t('Pack {0}{1}', PACK_SIZE_NAME[size], PACK_KIND_NAME[kind]);
   }
 
   private actionsHtml(): string {
     return `<div class="actions">
-      <button class="btn btn-blue" data-act="play" id="btn-play">Jugar mano</button>
-      <button class="btn btn-red" data-act="discard" id="btn-discard">Descartar</button>
-      <div class="sort-btns"><button class="mini-btn" data-act="sort-rank">Rango</button><button class="mini-btn" data-act="sort-suit">Palo</button></div>
+      <button class="btn btn-blue" data-act="play" id="btn-play">${t('Jugar mano')}</button>
+      <button class="btn btn-red" data-act="discard" id="btn-discard">${t('Descartar')}</button>
+      <div class="sort-btns"><button class="mini-btn" data-act="sort-rank">${t('Rango')}</button><button class="mini-btn" data-act="sort-suit">${t('Palo')}</button></div>
     </div>`;
   }
 
@@ -296,49 +297,49 @@ export class GameUI {
       const state = i < r.blindIndex ? 'done' : i === r.blindIndex ? 'current' : 'next';
       const buttons =
         state === 'current'
-          ? `<button class="btn btn-blue" data-act="select">Jugar</button>${
-              kind !== 'boss' ? '<button class="btn btn-orange" data-act="skip">Saltar</button>' : ''
-            }${kind === 'boss' && canReroll ? '<button class="mini-btn" data-act="rerollboss">Relanzar Boss $10</button>' : ''}`
-          : `<div class="blind-state">${state === 'done' ? '✔ Superada' : 'Pendiente'}</div>`;
+          ? `<button class="btn btn-blue" data-act="select">${t('Jugar')}</button>${
+              kind !== 'boss' ? `<button class="btn btn-orange" data-act="skip">${t('Saltar')}</button>` : ''
+            }${kind === 'boss' && canReroll ? `<button class="mini-btn" data-act="rerollboss">${t('Relanzar Boss $10')}</button>` : ''}`
+          : `<div class="blind-state">${state === 'done' ? t('✔ Superada') : t('Pendiente')}</div>`;
       const tag = kind !== 'boss' && state !== 'done' ? this.offeredTagLine(i) : '';
       return `<div class="blind-option ${state} blind-${kind}">
         <div class="blind-name">${kind === 'boss' ? boss.name : BLIND_NAME[kind]}</div>
         ${kind === 'boss' ? `<div class="boss-desc">${boss.desc}</div>` : ''}
-        <div class="stat-line">Objetivo<b>${fmt(blindTarget(r.ante, kind, r.boss.mult))}</b></div>
-        <div class="stat-line">Recompensa<b>${'$'.repeat(BLIND_REWARD[kind])}</b></div>
+        <div class="stat-line">${t('Objetivo')}<b>${fmt(blindTarget(r.ante, kind, r.boss.mult))}</b></div>
+        <div class="stat-line">${t('Recompensa')}<b>${'$'.repeat(BLIND_REWARD[kind])}</b></div>
         ${tag}
         ${buttons}
       </div>`;
     }).join('');
-    return `<div class="overlay"><h2>Ante ${r.endless ? r.ante : `${r.ante} / ${MAX_ANTE}`}</h2><div class="blind-options">${cards}</div></div>`;
+    return `<div class="overlay"><h2>${t('Ante')} ${r.endless ? r.ante : `${r.ante} / ${MAX_ANTE}`}</h2><div class="blind-options">${cards}</div></div>`;
   }
 
   /** Línea con el Tag que daría saltar esa ciega (solo se conoce el de la ciega actual). */
   private offeredTagLine(index: number): string {
     const r = this.run;
     if (index !== r.blindIndex || !r.offeredTag) return '';
-    const t = TAG_TEXT[r.offeredTag];
-    return `<div class="skip-tag">Saltar da: ${this.chip(r.offeredTag, 'tag', t.name, t.desc)}<span>${t.name}</span></div>`;
+    const tx = TAG_TEXT[r.offeredTag];
+    return `<div class="skip-tag">${t('Saltar da')}: ${this.chip(r.offeredTag, 'tag', tx.name, tx.desc)}<span>${tx.name}</span></div>`;
   }
 
   private cashoutHtml(): string {
     const c = this.run.cashout!;
     return `<div class="overlay"><div class="panel cashout">
-      <h2>¡Ciega superada!</h2>
+      <h2>${t('¡Ciega superada!')}</h2>
       <div class="stat-line">${BLIND_NAME[this.run.blind]}<b>$${c.blindReward}</b></div>
-      <div class="stat-line">Manos sobrantes (${this.run.handsLeft})<b>$${c.handsBonus}</b></div>
-      <div class="stat-line">Interés<b>$${c.interest}</b></div>
+      <div class="stat-line">${t('Manos sobrantes')} (${this.run.handsLeft})<b>$${c.handsBonus}</b></div>
+      <div class="stat-line">${t('Interés')}<b>$${c.interest}</b></div>
       ${c.jokerBonus ? `<div class="stat-line">Jokers<b>$${c.jokerBonus}</b></div>` : ''}
-      ${c.heldBonus ? `<div class="stat-line">Cartas de oro<b>$${c.heldBonus}</b></div>` : ''}
-      ${c.tagBonus ? `<div class="stat-line">Tag Inversión<b>$${c.tagBonus}</b></div>` : ''}
-      ${c.rental ? `<div class="stat-line">Alquileres<b>-${c.rental}</b></div>` : ''}
-      <div class="stat-line total">Total<b>${c.total}</b></div>
-      <button class="btn btn-orange" data-act="collect">Cobrar $${c.total}</button>
+      ${c.heldBonus ? `<div class="stat-line">${t('Cartas de oro')}<b>$${c.heldBonus}</b></div>` : ''}
+      ${c.tagBonus ? `<div class="stat-line">${t('Tag Inversión')}<b>$${c.tagBonus}</b></div>` : ''}
+      ${c.rental ? `<div class="stat-line">${t('Alquileres')}<b>-${c.rental}</b></div>` : ''}
+      <div class="stat-line total">${t('Total')}<b>${c.total}</b></div>
+      <button class="btn btn-orange" data-act="collect">${t('Cobrar')} $${c.total}</button>
     </div></div>`;
   }
 
   private priceLabel(cost: number): string {
-    return cost === 0 ? 'Gratis' : `$${cost}`;
+    return cost === 0 ? t('Gratis') : `$${cost}`;
   }
 
   private shopHtml(): string {
@@ -346,38 +347,38 @@ export class GameUI {
     const s = r.shop!;
     const items = s.items
       .map((it, i) => {
-        if (!it) return '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>';
+        if (!it) return `<div class="shop-slot sold"><div class="empty-slot">${t('Vendido')}</div></div>`;
         const noRoom = this.noRoom(it);
         const dis = r.money + r.debtLimit < it.cost || noRoom;
-        return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-orange price" data-act="buy" data-i="${i}" ${dis ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : this.priceLabel(it.cost)}</button></div>`;
+        return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-orange price" data-act="buy" data-i="${i}" ${dis ? 'disabled' : ''}>${noRoom ? t('Sin espacio') : this.priceLabel(it.cost)}</button></div>`;
       })
       .join('');
     const packs = s.packs
       .map((p, i) => {
-        if (!p) return '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>';
+        if (!p) return `<div class="shop-slot sold"><div class="empty-slot">${t('Vendido')}</div></div>`;
         const [n, picks] = PACK_SHAPE[p.kind][p.size];
-        return `<div class="shop-slot"><div class="icard"><img src="${packArt(p.kind)}" draggable="false"/><div class="tip"><b>${this.packName(p.kind, p.size)}</b><p>Elige ${picks} de ${n} ${PACK_DESC[p.kind]}</p></div></div>
+        return `<div class="shop-slot"><div class="icard"><img src="${packArt(p.kind)}" draggable="false"/><div class="tip"><b>${this.packName(p.kind, p.size)}</b><p>${t('Elige {0} de {1} {2}', picks, n, PACK_DESC[p.kind])}</p></div></div>
           <button class="btn btn-orange price" data-act="pack" data-i="${i}" ${r.money + r.debtLimit < p.cost ? 'disabled' : ''}>${this.priceLabel(p.cost)}</button></div>`;
       })
       .join('');
     const vouchers = s.vouchers
       .map((v, i) =>
         v
-          ? `<div class="shop-slot"><div class="icard"><img src="${voucherArt(v)}" draggable="false"/><div class="tip"><b>${VOUCHER_TEXT[v].name}</b><span class="rar r-planet">Voucher</span><p>${VOUCHER_TEXT[v].desc}</p></div></div>
+          ? `<div class="shop-slot"><div class="icard"><img src="${voucherArt(v)}" draggable="false"/><div class="tip"><b>${VOUCHER_TEXT[v].name}</b><span class="rar r-planet">${t('Voucher')}</span><p>${VOUCHER_TEXT[v].desc}</p></div></div>
          <button class="btn btn-orange price" data-act="voucher" data-i="${i}" ${r.money + r.debtLimit < VOUCHER_COST ? 'disabled' : ''}>$${VOUCHER_COST}</button></div>`
-          : '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>',
+          : `<div class="shop-slot sold"><div class="empty-slot">${t('Vendido')}</div></div>`,
       )
       .join('');
     return `<div class="overlay shop">
-      <h2>Tienda <span class="gold">$${r.money}</span></h2>
+      <h2>${t('Tienda')} <span class="gold">$${r.money}</span></h2>
       <div class="shop-rows">
-        <div class="shop-group"><h3>Cartas</h3><div class="shop-row">${items}</div></div>
-        <div class="shop-group"><h3>Packs</h3><div class="shop-row">${packs}</div></div>
-        <div class="shop-group"><h3>Voucher</h3><div class="shop-row">${vouchers}</div></div>
+        <div class="shop-group"><h3>${t('Cartas')}</h3><div class="shop-row">${items}</div></div>
+        <div class="shop-group"><h3>${t('Packs')}</h3><div class="shop-row">${packs}</div></div>
+        <div class="shop-group"><h3>${t('Voucher')}</h3><div class="shop-row">${vouchers}</div></div>
       </div>
       <div class="row shop-actions">
-        <button class="btn btn-red" data-act="reroll" ${(s.free ?? 0) === 0 && r.money + r.debtLimit < s.rerollCost ? 'disabled' : ''}>Relanzar ${(s.free ?? 0) > 0 ? 'gratis' : '$' + s.rerollCost}</button>
-        <button class="btn btn-blue" data-act="leave">Siguiente ronda</button>
+        <button class="btn btn-red" data-act="reroll" ${(s.free ?? 0) === 0 && r.money + r.debtLimit < s.rerollCost ? 'disabled' : ''}>${t('Relanzar')} ${(s.free ?? 0) > 0 ? t('gratis') : '$' + s.rerollCost}</button>
+        <button class="btn btn-blue" data-act="leave">${t('Siguiente ronda')}</button>
       </div>
     </div>`;
   }
@@ -386,13 +387,13 @@ export class GameUI {
     const cards = pack.choices
       .map((it, i) => {
         const noRoom = this.noRoom(it);
-        return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-blue price" data-act="pick" data-i="${i}" ${noRoom ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : 'Elegir'}</button></div>`;
+        return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-blue price" data-act="pick" data-i="${i}" ${noRoom ? 'disabled' : ''}>${noRoom ? t('Sin espacio') : t('Elegir')}</button></div>`;
       })
       .join('');
     return `<div class="overlay shop"><h2>${this.packName(pack.kind, pack.size)}</h2>
-      <p class="pack-hint">Elige ${pack.picksLeft} · los Tarots y Spectrals van a tus consumibles</p>
+      <p class="pack-hint">${t('Elige {0} · los Tarots y Spectrals van a tus consumibles', pack.picksLeft)}</p>
       <div class="shop-row">${cards}</div>
-      <button class="btn btn-red skip-pack" data-act="skippack">Saltar</button></div>`;
+      <button class="btn btn-red skip-pack" data-act="skippack">${t('Saltar')}</button></div>`;
   }
 
   private handsHtml(): string {
@@ -402,25 +403,25 @@ export class GameUI {
       const hidden = SECRET.includes(h) && plays === 0;
       const lvl = r.levels[h] ?? 1;
       const st = handStats(h, lvl);
-      return `<tr class="${hidden ? 'hidden-row' : ''}"><td>${hidden ? '???' : HAND_NAME[h]}</td><td>Nv.${lvl}</td>
+      return `<tr class="${hidden ? 'hidden-row' : ''}"><td>${hidden ? '???' : HAND_NAME[h]}</td><td>${t('Nv.')}${lvl}</td>
         <td class="c-chips">${hidden ? '?' : st.chips}</td><td>×</td><td class="c-mult">${hidden ? '?' : st.mult}</td><td>${plays}</td></tr>`;
     }).join('');
-    return `<div class="overlay info-overlay"><div class="panel hands-panel"><h2>Manos de póker</h2>
-      <table><thead><tr><th>Mano</th><th>Nivel</th><th colspan="3">Fichas × Mult</th><th>Jugadas</th></tr></thead><tbody>${rows}</tbody></table>
-      <button class="btn btn-red" data-act="hands">Cerrar</button></div></div>`;
+    return `<div class="overlay info-overlay"><div class="panel hands-panel"><h2>${t('Manos de póker')}</h2>
+      <table><thead><tr><th>${t('Mano')}</th><th>${t('Nivel')}</th><th colspan="3">${t('Fichas')} × Mult</th><th>${t('Jugadas')}</th></tr></thead><tbody>${rows}</tbody></table>
+      <button class="btn btn-red" data-act="hands">${t('Cerrar')}</button></div></div>`;
   }
 
   private endHtml(): string {
     const won = this.run.phase === 'won';
     return `<div class="overlay"><div class="panel cashout">
-      <h2>${won ? '¡Has ganado la run!' : 'Has perdido'}</h2>
-      <div class="stat-line">Ante alcanzado<b>${this.run.ante}</b></div>
-      <div class="stat-line">Semilla<b>${this.run.seed}</b></div>
-      <div class="stat-line">Mejor mano<b>${fmt(this.run.bestHand)}</b></div>
+      <h2>${won ? t('¡Has ganado la run!') : t('Has perdido')}</h2>
+      <div class="stat-line">${t('Ante alcanzado')}<b>${this.run.ante}</b></div>
+      <div class="stat-line">${t('Semilla')}<b>${this.run.seed}</b></div>
+      <div class="stat-line">${t('Mejor mano')}<b>${fmt(this.run.bestHand)}</b></div>
       <div class="row">
-        <button class="btn btn-red" data-act="exit">Menú</button>
-        ${won ? '<button class="btn btn-orange" data-act="endless">Seguir (Endless)</button>' : ''}
-        <button class="btn btn-blue" data-act="restart">Otra run</button>
+        <button class="btn btn-red" data-act="exit">${t('Menú')}</button>
+        ${won ? `<button class="btn btn-orange" data-act="endless">${t('Seguir (Endless)')}</button>` : ''}
+        <button class="btn btn-blue" data-act="restart">${t('Otra run')}</button>
       </div>
     </div></div>`;
   }
@@ -458,7 +459,7 @@ export class GameUI {
   private toast(msg: string) {
     const el = this.root.querySelector<HTMLElement>('#toast');
     if (!el) return;
-    el.textContent = MSG_TEXT[msg] ?? msg;
+    el.textContent = MSG_TEXT[msg] ?? t(msg);
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
@@ -554,7 +555,7 @@ export class GameUI {
       this.shownScore = prevScore;
       await this.countUp(this.run.score);
       this.setText('money', `$${this.run.money}`);
-      if (res.score.destroyed.length) this.toast('¡Se ha roto una carta de cristal!');
+      if (res.score.destroyed.length) this.toast(t('¡Se ha roto una carta de cristal!'));
       await sleep(500);
     } catch (err) {
       console.error(err);
@@ -663,7 +664,7 @@ export class GameUI {
     const sel = this.table.selectedCards();
     this.playErr = sel.length ? this.run.playError(sel) : null;
     if (this.playErr) {
-      this.setPreview(MSG_TEXT[this.playErr] ?? this.playErr, 0, 0);
+      this.setPreview(MSG_TEXT[this.playErr] ?? t(this.playErr), 0, 0);
     } else if (sel.some((c) => this.run.faceDown.has(c.id))) {
       this.setPreview('???', 0, 0);
     } else if (sel.length) {

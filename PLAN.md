@@ -69,9 +69,8 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - [x] Música generativa y SFX sintetizados con WebAudio (`src/audio/audio.ts`, sin assets), con volúmenes de música/efectos en Opciones. Música no dinámica por ahora (un solo loop).
 - [x] Juice: sacudida en ×Mult, números flotantes y mult en llamas (sin partículas todavía).
 - [x] Teclado (Enter/Espacio jugar, D descartar, 1-9 seleccionar, Esc limpiar); táctil vía pointer events; reducir movimiento, alto contraste de palos y CRT off en Opciones.
-- [ ] i18n ES/EN completo. **Pendiente:** hoy solo existe ES; falta la infraestructura de idioma y traducir ~500 textos + literales de la UI.
+- [x] i18n ES/EN: `src/i18n/index.ts` (setLang intercambia los textos de contenido; `t()` traduce los literales de la UI con ES como clave), traducciones en `content.en.ts`, `content2.en.ts` y `ui.en.ts`; selector de idioma en Opciones (por defecto, el del navegador). Los errores internos de la run solo están traducidos los habituales.
 - [ ] Rendimiento (profiling, ≤150 draw calls, carga de assets), PWA opcional.
-- [ ] Sustituir placeholders por assets originales del autor.
 - **Entregable:** build de producción desplegable (Netlify/Vercel/itch.io).
 
 ## Fase 9 — Lanzamiento

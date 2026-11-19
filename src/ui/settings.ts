@@ -1,4 +1,7 @@
+import { detectLang, type Lang } from '../i18n';
+
 export interface Settings {
+  lang: Lang;
   music: number; // 0..1
   sfx: number; // 0..1
   scanlines: boolean;
@@ -8,7 +11,7 @@ export interface Settings {
 }
 
 const KEY = 'balatro-web:settings';
-const DEFAULTS: Settings = { music: 0.7, sfx: 0.8, scanlines: true, reduceMotion: false, highContrast: false };
+const DEFAULTS: Settings = { lang: detectLang(), music: 0.7, sfx: 0.8, scanlines: true, reduceMotion: false, highContrast: false };
 
 export function loadSettings(): Settings {
   try {

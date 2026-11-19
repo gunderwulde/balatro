@@ -3,10 +3,12 @@ import { CONSUMABLE_LIST } from '../core/consumables';
 import { DECK_IDS, DEFAULT_DECK } from '../core/decks';
 import { JOKER_LIST } from '../core/jokers';
 import { unlockedStake } from '../core/profile';
+import { fmtNum } from '../i18n';
 import { MAX_STAKE, STAKE_IDS } from '../core/stakes';
 import { JOKER_TEXT, PLANET_TEXT } from '../i18n/content.es';
 import { CHALLENGE_TEXT, DECK_TEXT, SPECTRAL_TEXT, STAKE_TEXT, TAROT_TEXT } from '../i18n/content2.es';
 import { consumableArt, jokerArt } from '../render/itemArt';
+import { setLang, t, type Lang } from '../i18n';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { loadProfile, loadRunSave } from './storage';
 
@@ -67,7 +69,7 @@ export class MainMenu {
     const max = unlockedStake(this.profile, this.deck);
     const decks = DECK_IDS.map(
       (d) =>
-        `<button class="deck-btn ${d === this.deck ? 'on' : ''}" data-deck="${d}" title="${DECK_TEXT[d].name}">${DECK_TEXT[d].name.replace('Mazo ', '')}</button>`,
+        `<button class="deck-btn ${d === this.deck ? 'on' : ''}" data-deck="${d}" title="${DECK_TEXT[d].name}">${DECK_TEXT[d].name.replace(/^Mazo | Deck$/g, '')}</button>`,
     ).join('');
     const stakes = STAKE_IDS.map(
       (id, i) =>
@@ -79,13 +81,13 @@ export class MainMenu {
           <div class="deck-grid">${decks}</div>
           <p class="muted"><b>${DECK_TEXT[this.deck].name}</b> · ${DECK_TEXT[this.deck].desc}</p>
           <div class="stake-row">${stakes}</div>
-          <p class="muted"><b>Stake ${st.name}</b> · ${st.desc}${this.stake > 1 ? ' (incluye los anteriores)' : ''}</p>
-          <label class="field">Semilla <small>(vacío = aleatoria)</small>
+          <p class="muted"><b>${st.name}</b> · ${st.desc}${this.stake > 1 ? t(' (incluye los anteriores)') : ''}</p>
+          <label class="field">${t('Semilla')} <small>${t('(vacío = aleatoria)')}</small>
             <input id="seed" maxlength="8" autocomplete="off" spellcheck="false" placeholder="ABCD1234" value="${this.seedText}" />
           </label>
           <div class="row">
-            <button class="btn btn-red" data-act="back">Atrás</button>
-            <button class="btn btn-blue" data-act="start">Empezar</button>
+            <button class="btn btn-red" data-act="back">${t('Atrás')}</button>
+            <button class="btn btn-blue" data-act="start">${t('Empezar')}</button>
           </div>
         </div>`;
   }
@@ -98,9 +100,9 @@ export class MainMenu {
     }).join('');
     return `
         <div class="panel play-panel">
-          <p class="muted">Elige un desafío: mazo y reglas fijas (Stake blanco).</p>
+          <p class="muted">${t('Elige un desafío: mazo y reglas fijas (Stake blanco).')}</p>
           <div class="challenge-list">${items}</div>
-          <div class="row"><button class="btn btn-red" data-act="back">Atrás</button></div>
+          <div class="row"><button class="btn btn-red" data-act="back">${t('Atrás')}</button></div>
         </div>`;
   }
 
@@ -123,13 +125,13 @@ export class MainMenu {
       .join(' · ');
     return `
           <div class="stats">
-            <div>Partidas: <b>${p.runs}</b> · Victorias: <b>${p.wins}</b></div>
-            <div>Mejor Ante: <b>${p.bestAnte}</b> · Mejor mano: <b>${p.bestHand.toLocaleString('es-ES')}</b></div>
-            ${wins ? `<p class="muted">Stakes ganados: ${wins}</p>` : ''}
+            <div>${t('Partidas')}: <b>${p.runs}</b> · ${t('Victorias')}: <b>${p.wins}</b></div>
+            <div>${t('Mejor Ante')}: <b>${p.bestAnte}</b> · ${t('Mejor mano')}: <b>${fmtNum(p.bestHand)}</b></div>
+            ${wins ? `<p class="muted">${t('Stakes ganados')}: ${wins}</p>` : ''}
           </div>
-          <h3 class="coll-title">Jokers ${found(JOKER_LIST.map((d) => d.id))}/${JOKER_LIST.length}</h3>
+          <h3 class="coll-title">${t('Jokers')} ${found(JOKER_LIST.map((d) => d.id))}/${JOKER_LIST.length}</h3>
           <div class="coll-grid">${jokers}</div>
-          <h3 class="coll-title">Consumibles ${found(CONSUMABLE_LIST.map((c) => c.id))}/${CONSUMABLE_LIST.length}</h3>
+          <h3 class="coll-title">${t('Consumibles')} ${found(CONSUMABLE_LIST.map((c) => c.id))}/${CONSUMABLE_LIST.length}</h3>
           <div class="coll-grid">${cons}</div>`;
   }
 
@@ -140,11 +142,11 @@ export class MainMenu {
     let body = '';
     if (this.screen === 'main') {
       body = `
-        ${this.hasSave ? '<button class="btn btn-orange" data-act="continue">Continuar</button>' : ''}
-        <button class="btn btn-blue" data-act="play">${this.hasSave ? 'Nueva run' : 'Jugar'}</button>
-        <button class="btn btn-orange" data-act="challenges">Desafíos</button>
-        <button class="btn btn-orange" data-act="collection">Colección</button>
-        <button class="btn btn-red" data-act="options">Opciones</button>`;
+        ${this.hasSave ? '<button class="btn btn-orange" data-act="continue">' + t('Continuar') + '</button>' : ''}
+        <button class="btn btn-blue" data-act="play">${this.hasSave ? t('Nueva run') : t('Jugar')}</button>
+        <button class="btn btn-orange" data-act="challenges">${t('Desafíos')}</button>
+        <button class="btn btn-orange" data-act="collection">${t('Colección')}</button>
+        <button class="btn btn-red" data-act="options">${t('Opciones')}</button>`;
     } else if (this.screen === 'play') {
       body = this.playHtml();
     } else if (this.screen === 'challenges') {
@@ -153,18 +155,22 @@ export class MainMenu {
       const s = this.settings;
       body = `
         <div class="panel">
-          <label class="field">Música <input type="range" min="0" max="100" value="${Math.round(s.music * 100)}" data-set="music" /></label>
-          <label class="field">Efectos <input type="range" min="0" max="100" value="${Math.round(s.sfx * 100)}" data-set="sfx" /></label>
-          <label class="check"><input type="checkbox" data-set="scanlines" ${s.scanlines ? 'checked' : ''} /> Filtro CRT (curvatura y scanlines)</label>
-          <label class="check"><input type="checkbox" data-set="reduceMotion" ${s.reduceMotion ? 'checked' : ''} /> Reducir movimiento</label>
-          <label class="check"><input type="checkbox" data-set="highContrast" ${s.highContrast ? 'checked' : ''} /> Alto contraste de palos (daltonismo)</label>
-          <div class="row"><button class="btn btn-red" data-act="back">Atrás</button></div>
+          <label class="field">${t('Música')} <input type="range" min="0" max="100" value="${Math.round(s.music * 100)}" data-set="music" /></label>
+          <label class="field">${t('Efectos')} <input type="range" min="0" max="100" value="${Math.round(s.sfx * 100)}" data-set="sfx" /></label>
+          <label class="field">${t('Idioma')} <select data-lang>
+            <option value="es" ${this.settings.lang === 'es' ? 'selected' : ''}>Español</option>
+            <option value="en" ${this.settings.lang === 'en' ? 'selected' : ''}>English</option>
+          </select></label>
+          <label class="check"><input type="checkbox" data-set="scanlines" ${s.scanlines ? 'checked' : ''} /> ${t('Filtro CRT (curvatura y scanlines)')}</label>
+          <label class="check"><input type="checkbox" data-set="reduceMotion" ${s.reduceMotion ? 'checked' : ''} /> ${t('Reducir movimiento')}</label>
+          <label class="check"><input type="checkbox" data-set="highContrast" ${s.highContrast ? 'checked' : ''} /> ${t('Alto contraste de palos (daltonismo)')}</label>
+          <div class="row"><button class="btn btn-red" data-act="back">${t('Atrás')}</button></div>
         </div>`;
     } else {
       body = `
         <div class="panel play-panel">
           ${this.collectionHtml()}
-          <div class="row"><button class="btn btn-red" data-act="back">Atrás</button></div>
+          <div class="row"><button class="btn btn-red" data-act="back">${t('Atrás')}</button></div>
         </div>`;
     }
     this.root.innerHTML = `
@@ -208,6 +214,12 @@ export class MainMenu {
         this.stake = Number(b.dataset.stake);
         this.render();
       };
+    });
+    this.root.querySelector<HTMLSelectElement>('[data-lang]')?.addEventListener('change', (e) => {
+      this.settings.lang = (e.target as HTMLSelectElement).value as Lang;
+      saveSettings(this.settings);
+      setLang(this.settings.lang);
+      this.render();
     });
     this.root.querySelectorAll<HTMLInputElement>('[data-set]').forEach((el) => {
       el.oninput = () => {
