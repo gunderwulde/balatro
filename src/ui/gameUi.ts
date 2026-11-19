@@ -641,6 +641,7 @@ export class GameUI {
   }
 
   private disableActions(forceOff: boolean) {
+    this.root.querySelector('.actions')?.classList.toggle('away', forceOff);
     const n = this.table.selectedCards().length;
     const play = this.root.querySelector<HTMLButtonElement>('#btn-play');
     const disc = this.root.querySelector<HTMLButtonElement>('#btn-discard');
