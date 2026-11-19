@@ -20,6 +20,8 @@ export interface Card {
   enhancement?: Enhancement;
   seal?: Seal;
   edition?: CardEdition;
+  /** Fichas permanentes añadidas a la carta (Hiker). */
+  perma?: number;
 }
 
 export function rankLabel(r: Rank): string {
@@ -43,7 +45,7 @@ export function cardIsSuit(c: Card, suit: Suit): boolean {
 
 /** Fichas por rango de la carta (Stone no tiene rango). */
 export function cardChips(c: Card): number {
-  return isStone(c) ? 0 : chipValue(c.rank);
+  return isStone(c) ? 0 : chipValue(c.rank) + (c.perma ?? 0);
 }
 
 export function createDeck(): Card[] {

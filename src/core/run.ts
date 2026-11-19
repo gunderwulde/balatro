@@ -362,6 +362,7 @@ export class Run implements EffectHost {
       deckLeft: this.drawPile.length,
       handPlays: this.handPlays,
       deck: this.fullDeck,
+      roundHands: this.roundHandTypes,
       rng,
       debuff: boss ? (c) => this.isDebuffed(c) : undefined,
       flint: !!boss?.flint,
@@ -430,7 +431,7 @@ export class Run implements EffectHost {
     this.take(ids);
     this.discardsLeft--;
     this.discardPile.push(...cards);
-    for (const j of this.jokers) JOKERS[j.id].onDiscard?.(j);
+    for (const j of this.jokers) JOKERS[j.id].onDiscard?.(j, cards.length);
     // Sello púrpura: crea un Tarot al descartar.
     for (const c of cards) {
       if (c.seal === 'purple' && this.consumableSpace() > 0) {

@@ -95,3 +95,19 @@ Object.assign(JOKER_TEXT, {
   steel_joker: { name: 'Joker de Acero', desc: '×0,2 Mult extra por cada carta de Acero en tu mazo' },
   cloud_9: { name: 'Nube 9', desc: 'Ganas $1 al final de la ronda por cada 9 en tu mazo' },
 });
+
+Object.assign(JOKER_TEXT, {
+  wee_joker: { name: 'Joker Diminuto', desc: 'Gana +8 Fichas por cada 2 que puntúa' },
+  seeing_double: { name: 'Visión Doble', desc: '×2 Mult si puntúa una carta ♣ y otra de otro palo' },
+  flower_pot: { name: 'Maceta', desc: '×3 Mult si la mano puntúa con cartas de los 4 palos' },
+  loyalty_card: { name: 'Tarjeta de Fidelidad', desc: '×4 Mult cada 6 manos jugadas' },
+  drivers_license: { name: 'Carné de Conducir', desc: '×3 Mult si tienes 16 o más cartas mejoradas en tu mazo' },
+  erosion: { name: 'Erosión', desc: '+4 Mult por cada carta que le falte a tu mazo para tener 52' },
+  reserved_parking: { name: 'Plaza Reservada', desc: 'Cada figura en tu mano tiene 1/2 de dar $1' },
+  business_card: { name: 'Tarjeta de Visita', desc: 'Las figuras que puntúan tienen 1/2 de dar $2' },
+  card_sharp: { name: 'Tahúr', desc: '×3 Mult si ya jugaste este tipo de mano en la ronda' },
+  obelisk: { name: 'Obelisco', desc: 'Gana ×0,2 Mult por cada mano seguida que no sea la más jugada' },
+  ramen: { name: 'Ramen', desc: '×2 Mult, pierde ×0,01 por cada carta descartada' },
+  hiker: { name: 'Senderista', desc: 'Cada carta que puntúa gana +5 Fichas permanentes' },
+  egg: { name: 'Huevo', desc: 'Gana $3 de valor de venta al final de cada ronda' },
+});

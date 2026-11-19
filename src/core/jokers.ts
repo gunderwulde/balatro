@@ -25,6 +25,8 @@ export interface ScoreCtx {
   handPlays: Partial<Record<HandType, number>>;
   /** Mazo completo (Stone/Steel Joker, Cloud 9). */
   deck: Card[];
+  /** Tipos de mano jugados antes en esta ronda. */
+  roundHands: HandType[];
   /** Tiradas aleatorias [0,1) (en la vista previa nunca ocurre nada). */
   rng: () => number;
 }
@@ -56,7 +58,7 @@ export interface JokerDef {
   onScore?(j: JokerInstance, ctx: ScoreCtx): Effect | undefined;
   /** Tras puntuar la mano (actualiza estado de jokers que escalan). */
   onHandPlayed?(j: JokerInstance, ctx: ScoreCtx): void;
-  onDiscard?(j: JokerInstance): void;
+  onDiscard?(j: JokerInstance, count: number): void;
   roundEndMoney?(j: JokerInstance, deck: Card[]): number;
   /** Repeticiones extra de una carta que puntúa. */
   retriggerScored?(j: JokerInstance, ctx: ScoreCtx, card: Card): number;
@@ -200,6 +202,51 @@ export const JOKER_LIST: JokerDef[] = [
       return n ? { xmult: 1 + 0.2 * n } : undefined;
     },
   },
+  // ---- Lote 3 de Fase 7 ⚠ verificar ----
+  {
+    id: 'wee_joker', rarity: 'rare', cost: 8,
+    onScore: (j) => ({ chips: j.state.chips ?? 0 }),
+    onHandPlayed: (j, c) => { j.state.chips = (j.state.chips ?? 0) + 8 * c.scoring.filter((x) => !isStone(x) && x.rank === 2).length; },
+  },
+  {
+    id: 'seeing_double', rarity: 'uncommon', cost: 6,
+    onScore: (_j, c) => (c.scoring.some((x) => cardIsSuit(x, 'C')) && c.scoring.some((x) => !cardIsSuit(x, 'C')) ? { xmult: 2 } : undefined),
+  },
+  {
+    id: 'flower_pot', rarity: 'uncommon', cost: 6,
+    onScore: (_j, c) => (c.scoring.length >= 4 && (['S', 'H', 'D', 'C'] as Suit[]).every((s) => c.scoring.some((x) => cardIsSuit(x, s))) ? { xmult: 3 } : undefined),
+  },
+  {
+    id: 'loyalty_card', rarity: 'uncommon', cost: 5,
+    onScore: (_j, c) => ((Object.values(c.handPlays).reduce((a, b) => a + (b ?? 0), 0) + 1) % 6 === 0 ? { xmult: 4 } : undefined),
+  },
+  {
+    id: 'drivers_license', rarity: 'rare', cost: 7,
+    onScore: (_j, c) => (c.deck.filter((x) => x.enhancement).length >= 16 ? { xmult: 3 } : undefined),
+  },
+  { id: 'erosion', rarity: 'uncommon', cost: 6, onScore: (_j, c) => ({ mult: 4 * Math.max(0, 52 - c.deck.length) }) },
+  { id: 'reserved_parking', rarity: 'common', cost: 6, onHeld: (_j, c, card) => (isFace(card) && c.rng() < 0.5 ? { money: 1 } : undefined) },
+  { id: 'business_card', rarity: 'common', cost: 4, onCardScored: (_j, c, card) => (isFace(card) && c.rng() < 0.5 ? { money: 2 } : undefined) },
+  { id: 'card_sharp', rarity: 'uncommon', cost: 6, onScore: (_j, c) => (c.roundHands.includes(c.handType) ? { xmult: 3 } : undefined) },
+  {
+    id: 'obelisk', rarity: 'rare', cost: 8,
+    onScore: (j, c) => ({ xmult: 1 + 0.2 * ((j.state.streak ?? 0) + (isMostPlayed(c) ? 0 : 1)) }),
+    onHandPlayed: (j, c) => { j.state.streak = isMostPlayed(c) ? 0 : (j.state.streak ?? 0) + 1; },
+  },
+  {
+    id: 'ramen', rarity: 'uncommon', cost: 6,
+    onScore: (j) => ({ xmult: Math.max(1, 2 - 0.01 * (j.state.lost ?? 0)) }),
+    onDiscard: (j, n) => { j.state.lost = (j.state.lost ?? 0) + n; },
+    onRoundEnd: (j) => 2 - 0.01 * (j.state.lost ?? 0) <= 1,
+  },
+  {
+    id: 'hiker', rarity: 'uncommon', cost: 5,
+    onHandPlayed: (_j, c) => { for (const x of c.scoring) x.perma = (x.perma ?? 0) + 5; },
+  },
+  {
+    id: 'egg', rarity: 'common', cost: 4,
+    onRoundEnd: (j) => { j.state.sell = (j.state.sell ?? 0) + 3; return false; },
+  },
   { id: 'cloud_9', rarity: 'uncommon', cost: 7, roundEndMoney: (_j, deck) => deck.filter((x) => !isStone(x) && x.rank === 9).length },
   // ---- Lote 1 de Fase 7 ⚠ verificar valores ----
   {
@@ -245,5 +292,11 @@ export const JOKERS: Record<string, JokerDef> = Object.fromEntries(JOKER_LIST.ma
 export const EDITION_COST: Record<Edition, number> = { foil: 2, holo: 3, poly: 5, negative: 5 };
 
 export function sellValue(j: JokerInstance): number {
-  return Math.max(1, Math.floor(j.cost / 2));
+  return Math.max(1, Math.floor(j.cost / 2)) + (j.state.sell ?? 0);
+}
+
+/** ¿La mano jugada es (o empata como) la más jugada hasta ahora? (Obelisk) */
+function isMostPlayed(c: ScoreCtx): boolean {
+  const n = c.handPlays[c.handType] ?? 0;
+  return n > 0 && n === Math.max(...Object.values(c.handPlays).map((v) => v ?? 0));
 }

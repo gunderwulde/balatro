@@ -89,6 +89,8 @@ export interface ScoreOptions {
   balance?: boolean;
   /** Mazo completo (jokers que cuentan cartas del mazo). */
   deck?: Card[];
+  /** Tipos de mano ya jugados en la ronda. */
+  roundHands?: HandType[];
 }
 
 export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
@@ -105,6 +107,7 @@ export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
     jokerCount: opts.jokers?.length ?? 0,
     handPlays: opts.handPlays ?? {},
     deck: opts.deck ?? [],
+    roundHands: opts.roundHands ?? [],
     rng: opts.rng ?? (() => 1),
   };
 }

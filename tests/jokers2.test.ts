@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Card, Rank, Suit } from '../src/core/cards';
-import { JOKER_LIST, type JokerInstance } from '../src/core/jokers';
+import { cardChips } from '../src/core/cards';
+import { JOKER_LIST, sellValue, type JokerInstance } from '../src/core/jokers';
 import { JOKER_TEXT } from '../src/i18n/content.es';
 import { Run } from '../src/core/run';
 import { scoreHand } from '../src/core/scoring';
@@ -145,5 +146,76 @@ describe('jokers lote 2 (motor)', () => {
     }
     expect(died).toBeGreaterThan(0);
     expect(died).toBeLessThan(40);
+  });
+});
+
+describe('jokers lote 3', () => {
+  const sc = (cards: string, js: JokerInstance[], extra: object = {}) => scoreHand(mk(cards), { jokers: js, ...extra }).total;
+  it('Wee Joker escala con 2', () => {
+    const r = new Run('WEE');
+    const j = r.addJoker('wee_joker');
+    r.selectBlind();
+    r.score = 1e12;
+    const two = r.hand.find((c) => c.rank === 2);
+    r.play([(two ?? r.hand[0]).id]);
+    expect(j.state.chips ?? 0).toBe(two ? 8 : 0);
+    expect(sc('9S', [joker('wee_joker')], {})).toBe(14);
+    expect(sc('9S', [joker('wee_joker', { chips: 16 })])).toBe(30);
+  });
+  it('Seeing Double y Flower Pot', () => {
+    expect(sc('9C 9H', [joker('seeing_double')])).toBe((10 + 18) * 2 * 2);
+    expect(sc('9C 9C', [joker('seeing_double')])).toBe((10 + 18) * 2);
+    expect(sc('2S 3H 4D 5C 6S', [joker('flower_pot')])).toBe(sc('2S 3H 4D 5C 6S', []) * 3);
+    expect(sc('2S 3H 4D 5S 6S', [joker('flower_pot')])).toBe(sc('2S 3H 4D 5S 6S', []));
+  });
+  it('Loyalty Card: cada 6ª mano', () => {
+    expect(sc('9S', [joker('loyalty_card')], { handPlays: { high_card: 5 } })).toBe(14 * 4);
+    expect(sc('9S', [joker('loyalty_card')], { handPlays: { high_card: 3 } })).toBe(14);
+  });
+  it('Driver\'s License y Erosion usan el mazo', () => {
+    const deck = mk('2S 3S 4S 5S 6S 7S 8S 9S 10S JS QS KS AS 2H 3H 4H');
+    for (const c of deck) c.enhancement = 'bonus';
+    expect(sc('9S', [joker('drivers_license')], { deck })).toBe(14 * 3);
+    expect(sc('9S', [joker('drivers_license')], { deck: deck.slice(1) })).toBe(14);
+    expect(sc('9S', [joker('erosion')], { deck: mk('2S 3S') })).toBe(14 * (1 + 4 * 50));
+  });
+  it('Reserved Parking y Business Card dan dinero con suerte', () => {
+    expect(scoreHand(mk('9S'), { jokers: [joker('reserved_parking')], held: mk('KH QD 2C'), rng: () => 0.1 }).money).toBe(2);
+    expect(scoreHand(mk('KS'), { jokers: [joker('business_card')], rng: () => 0.1 }).money).toBe(2);
+    expect(scoreHand(mk('KS'), { jokers: [joker('business_card')], rng: () => 0.9 }).money).toBe(0);
+  });
+  it('Card Sharp: ×3 si la mano ya se jugó en la ronda', () => {
+    expect(sc('9S', [joker('card_sharp')], { roundHands: ['high_card'] })).toBe(14 * 3);
+    expect(sc('9S', [joker('card_sharp')], { roundHands: ['pair'] })).toBe(14);
+  });
+  it('Obelisco: sube con manos que no son la más jugada y se reinicia', () => {
+    expect(sc('9S', [joker('obelisk', { streak: 5 })], { handPlays: { high_card: 9 } })).toBe(Math.floor(14 * 2));
+    expect(sc('9S', [joker('obelisk', { streak: 5 })], { handPlays: { pair: 9 } })).toBe(Math.floor(14 * 2.2));
+  });
+  it('Ramen pierde por descarte y se destruye; Egg sube el precio de venta', () => {
+    const r = new Run('RAM');
+    const j = r.addJoker('ramen');
+    r.selectBlind();
+    r.discard([r.hand[0].id, r.hand[1].id, r.hand[2].id]);
+    expect(j.state.lost).toBe(3);
+    expect(sc('9S', [joker('ramen', { lost: 50 })])).toBe(Math.floor(14 * 1.5));
+    const e = new Run('EGG');
+    const egg = e.addJoker('egg');
+    const before = sellValue(egg);
+    e.selectBlind();
+    e.score = 1e12;
+    e.play([e.hand[0].id]);
+    expect(sellValue(egg)).toBe(before + 3);
+  });
+  it('Hiker da fichas permanentes a las cartas jugadas', () => {
+    const r = new Run('HIK');
+    r.addJoker('hiker');
+    r.selectBlind();
+    r.score = 1e12;
+    const c = r.hand[0];
+    const base = c.perma ?? 0;
+    r.play([c.id]);
+    expect(c.perma).toBe(base + 5);
+    expect(cardChips(c)).toBeGreaterThanOrEqual(5 + 2);
   });
 });
