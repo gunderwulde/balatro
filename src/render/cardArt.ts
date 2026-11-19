@@ -8,6 +8,8 @@ export const CARD_H = 95;
 const PAPER = '#f4efe3';
 const SHADE = '#d8d0bd';
 const INK = '#1a1a22';
+const NORMAL_COLORS: Record<Suit, string> = { S: '#2b3a67', H: '#e0413a', D: '#e8892b', C: '#2f7a5b' };
+const CONTRAST_COLORS: Record<Suit, string> = { S: '#15152b', H: '#d7191c', D: '#0072b2', C: '#7a3f00' };
 export const SUIT_COLOR: Record<Suit, string> = {
   S: '#2b3a67',
   H: '#e0413a',
@@ -314,6 +316,13 @@ function toTexture(cv: HTMLCanvasElement): THREE.CanvasTexture {
   t.generateMipmaps = false;
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+/** Paleta de palos de alto contraste; invalida las texturas ya generadas. */
+export function setHighContrast(on: boolean): void {
+  Object.assign(SUIT_COLOR, on ? CONTRAST_COLORS : NORMAL_COLORS);
+  for (const t of cache.values()) t.dispose();
+  cache.clear();
 }
 
 export function faceTexture(card: Card): THREE.CanvasTexture {

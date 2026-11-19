@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import './ui/menu.css';
 import type { Card } from './core/cards';
+import { setVolumes, startMusic, unlockOnGesture } from './audio/audio';
 import { Background, PALETTES } from './render/background';
+import { setHighContrast } from './render/cardArt';
 import { PostFx } from './render/crt';
 import { Table, makeCardMesh } from './render/table';
 import { mergeProgress, recordEnd } from './core/profile';
@@ -92,12 +94,17 @@ function continueGame() {
   if (save) begin(Run.restore(save));
 }
 
+unlockOnGesture();
 const menu = new MainMenu({
   onStart: startGame,
   onContinue: continueGame,
   onSettings(s: Settings) {
     post.setCrt(s.scanlines);
     reduceMotion = s.reduceMotion;
+    document.documentElement.dataset.rm = s.reduceMotion ? '1' : '0';
+    setVolumes(s.music, s.sfx);
+    setHighContrast(s.highContrast);
+    startMusic();
     bg.speed = s.reduceMotion ? 0.15 : 1;
   },
 });

@@ -378,3 +378,12 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 }
 .challenge span { font-weight: 400; font-size: 13px; opacity: .85; }
 .challenge:hover { background: rgba(255,255,255,.18); }
+
+/* Mult en llamas */
+.pv-nums .mult.fire { animation: flame .35s ease-in-out infinite alternate; }
+@keyframes flame {
+  from { box-shadow: 0 0 6px 2px #ff9a3c, 0 -4px 10px 2px #ff4d2d; transform: scale(1); }
+  to { box-shadow: 0 0 12px 4px #ffd45e, 0 -8px 16px 4px #ff6a2d; transform: scale(1.08); }
+}
+:root[data-rm='1'] .pv-nums .mult.fire { animation: none; box-shadow: 0 0 8px 3px #ff9a3c; }
+:root[data-rm='1'] *, :root[data-rm='1'] *::before { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }

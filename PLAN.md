@@ -66,10 +66,10 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - [x] ~~Verificar valores `⚠ verificar` contra la fuente oficial~~ — descartado por decisión del autor.
 
 ## Fase 8 — Pulido, audio y plataforma (1 semana)
-- [ ] Música dinámica + SFX completos, mezcla de volúmenes.
-- [ ] Juice: shake, partículas, números flotantes, mult en llamas.
-- [ ] Controles táctiles y teclado; responsive; opciones de accesibilidad (reducir movimiento, daltonismo, CRT off).
-- [ ] i18n ES/EN completo.
+- [x] Música generativa y SFX sintetizados con WebAudio (`src/audio/audio.ts`, sin assets), con volúmenes de música/efectos en Opciones. Música no dinámica por ahora (un solo loop).
+- [x] Juice: sacudida en ×Mult, números flotantes y mult en llamas (sin partículas todavía).
+- [x] Teclado (Enter/Espacio jugar, D descartar, 1-9 seleccionar, Esc limpiar); táctil vía pointer events; reducir movimiento, alto contraste de palos y CRT off en Opciones.
+- [ ] i18n ES/EN completo. **Pendiente:** hoy solo existe ES; falta la infraestructura de idioma y traducir ~500 textos + literales de la UI.
 - [ ] Rendimiento (profiling, ≤150 draw calls, carga de assets), PWA opcional.
 - [ ] Sustituir placeholders por assets originales del autor.
 - **Entregable:** build de producción desplegable (Netlify/Vercel/itch.io).

@@ -26,6 +26,8 @@ const HAND_ORDER: HandType[] = [
 const SECRET: HandType[] = ['five_kind', 'flush_house', 'flush_five'];
 
 const fmt = (n: number) => n.toLocaleString('es-ES');
+import { sfx } from '../audio/audio';
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 interface Described {
@@ -54,12 +56,40 @@ export class GameUI {
   ) {
     this.root.className = 'game-ui';
     document.body.appendChild(this.root);
-    this.table.onSelectionChange = () => this.updatePreview();
+    this.table.onSelectionChange = () => {
+      const n = this.table.selectedCards().length;
+      if (n !== this.lastSel) sfx(n > this.lastSel ? 'select' : 'deselect');
+      this.lastSel = n;
+      this.updatePreview();
+    };
+    addEventListener('keydown', this.onKey, { signal: this.abort.signal });
     this.refresh();
   }
 
+  private lastSel = 0;
+  private abort = new AbortController();
+
+  /** Atajos: Enter/Espacio jugar, D/Retroceso descartar, Esc limpiar selección, 1-9 selecciona carta. */
+  private onKey = (e: KeyboardEvent) => {
+    if (this.disposed || this.busy || this.run.phase !== 'playing' || this.showHands) return;
+    if (e.target instanceof HTMLInputElement) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      void this.play();
+    } else if (e.key === 'd' || e.key === 'D' || e.key === 'Backspace') {
+      this.discard();
+    } else if (e.key === 'Escape') {
+      this.table.clearSelection();
+    } else if (/^[1-9]$/.test(e.key)) {
+      this.table.toggleAt(Number(e.key) - 1);
+    } else if (e.key === '0') {
+      this.table.toggleAt(9);
+    }
+  };
+
   dispose(): void {
     this.disposed = true;
+    this.abort.abort();
     cancelAnimationFrame(this.scoreAnim);
     clearTimeout(this.toastTimer);
     this.root.remove();
@@ -446,6 +476,7 @@ export class GameUI {
       return this.refresh();
     }
     if (this.busy) return;
+    sfx(['buy', 'pack', 'voucher', 'pick'].includes(a) ? 'buy' : 'click');
     let note: string | null = null;
     try {
       switch (a) {
@@ -502,6 +533,7 @@ export class GameUI {
     this.table.enabled = false;
     this.disableActions(true);
     const prevScore = this.run.score;
+    sfx('play');
     let res: ReturnType<Run['play']>;
     try {
       res = this.run.play(cards.map((c) => c.id));
@@ -529,6 +561,8 @@ export class GameUI {
     } finally {
       if (!this.disposed) {
         this.busy = false;
+        if (this.run.phase === 'cashout') sfx('win');
+        else if (this.run.phase === 'lost') sfx('lose');
         this.refresh();
       }
     }
@@ -538,18 +572,23 @@ export class GameUI {
     const events = score.events;
     const speed = events.length > 24 ? 0.5 : 1;
     const name = HAND_NAME[score.hand];
+    let n = 0;
     for (const e of events) {
       if (this.disposed) return;
       this.setPreview(name, e.chips, e.mult);
+      this.root.querySelector('#pv-mult')?.classList.toggle('fire', e.mult >= 25);
       if (e.type === 'hand') {
         await sleep(450 * speed);
         continue;
       }
       if (e.type === 'money') {
+        sfx('money');
         this.floatAt('#money', `+$${e.value}`, 'money');
         await sleep(300 * speed);
         continue;
       }
+      sfx(e.type === 'xmult' ? 'xmult' : e.type === 'chips' ? 'chips' : 'mult', n++);
+      if (e.type === 'xmult') this.shake(6);
       this.bump(e.type === 'chips' ? 'pv-chips' : 'pv-mult');
       if (e.source.kind === 'joker' || e.source.kind === 'edition' || e.source.kind === 'held') this.popJoker(e);
       await sleep((e.source.kind === 'card' || e.source.kind === 'planet' ? 130 : 420) * speed);
@@ -590,6 +629,7 @@ export class GameUI {
     const cards = this.table.selectedCards();
     if (!cards.length || this.run.discardsLeft <= 0) return;
     this.busy = true;
+    sfx('discard');
     this.table.sendAway(cards, 'discard', performance.now());
     this.run.discard(cards.map((c) => c.id));
     this.table.sync();
@@ -655,6 +695,17 @@ export class GameUI {
     this.setText('pv-name', name || ' ');
     this.setText('pv-chips', String(Math.round(chips)));
     this.setText('pv-mult', Number.isInteger(mult) ? String(mult) : mult.toFixed(1).replace('.', ','));
+  }
+
+  /** Sacudida de pantalla (se desactiva con «Reducir movimiento»). */
+  private shake(px: number) {
+    if (document.documentElement.dataset.rm === '1') return;
+    const cv = document.querySelector('canvas');
+    if (!cv) return;
+    cv.animate(
+      [{ transform: 'translate(0,0)' }, { transform: `translate(${px}px,${-px / 2}px)` }, { transform: `translate(${-px}px,${px / 2}px)` }, { transform: 'translate(0,0)' }],
+      { duration: 220 },
+    );
   }
 
   private bump(id: string) {

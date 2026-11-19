@@ -104,6 +104,15 @@ export class Table {
     return this.objs.filter((o) => o.selected).map((o) => o.card);
   }
 
+  /** Alterna la selección de la carta en la posición `i` de la mano (teclado). */
+  toggleAt(i: number): void {
+    const o = this.objs[i];
+    if (!o || !this.enabled || o.card.id === this.run.forcedCard) return;
+    if (!o.selected && this.selectedCards().length >= 5) return;
+    o.selected = !o.selected;
+    this.onSelectionChange();
+  }
+
   clearSelection(): void {
     this.objs.forEach((o) => (o.selected = false));
     this.onSelectionChange();
