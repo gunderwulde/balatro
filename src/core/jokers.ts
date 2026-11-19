@@ -146,6 +146,43 @@ export const JOKER_LIST: JokerDef[] = [
   },
   { id: 'chicot', rarity: 'legendary', cost: 20, disablesBoss: true },
   { id: 'bull', rarity: 'uncommon', cost: 6, onScore: (_j, c) => ({ chips: 2 * Math.max(0, c.money) }) },
+  // ---- Lote 1 de Fase 7 ⚠ verificar valores ----
+  {
+    id: 'walkie_talkie', rarity: 'common', cost: 4,
+    onCardScored: (_j, _c, card) => (inSet([10, 4])(card) ? { chips: 10, mult: 4 } : undefined),
+  },
+  { id: 'smiley_face', rarity: 'common', cost: 4, onCardScored: (_j, _c, card) => (isFace(card) ? { mult: 5 } : undefined) },
+  { id: 'shoot_the_moon', rarity: 'common', cost: 5, onHeld: (_j, _c, card) => (inSet([12])(card) ? { mult: 13 } : undefined) },
+  { id: 'arrowhead', rarity: 'uncommon', cost: 7, onCardScored: (_j, _c, card) => (cardIsSuit(card, 'S') ? { chips: 50 } : undefined) },
+  { id: 'onyx_agate', rarity: 'uncommon', cost: 7, onCardScored: (_j, _c, card) => (cardIsSuit(card, 'C') ? { mult: 7 } : undefined) },
+  { id: 'stuntman', rarity: 'rare', cost: 7, onScore: () => ({ chips: 250 }), passive: { handSize: -2 } },
+  { id: 'bootstraps', rarity: 'uncommon', cost: 7, onScore: (_j, c) => ({ mult: 2 * Math.floor(Math.max(0, c.money) / 5) }) },
+  { id: 'merry_andy', rarity: 'uncommon', cost: 7, passive: { discards: 3, handSize: -1 } },
+  { id: 'troubadour', rarity: 'uncommon', cost: 6, passive: { handSize: 2, hands: -1 } },
+  {
+    id: 'square_joker', rarity: 'common', cost: 4,
+    onScore: (j, c) => ({ chips: (j.state.chips ?? 0) + (c.played.length === 4 ? 4 : 0) }),
+    onHandPlayed: (j, c) => { if (c.played.length === 4) j.state.chips = (j.state.chips ?? 0) + 4; },
+  },
+  {
+    id: 'runner', rarity: 'common', cost: 5,
+    onScore: (j, c) => ({ chips: (j.state.chips ?? 0) + (containsHand(c.played, 'straight') ? 15 : 0) }),
+    onHandPlayed: (j, c) => { if (containsHand(c.played, 'straight')) j.state.chips = (j.state.chips ?? 0) + 15; },
+  },
+  {
+    id: 'spare_trousers', rarity: 'uncommon', cost: 6,
+    onScore: (j, c) => ({ mult: (j.state.mult ?? 0) + (containsHand(c.played, 'two_pair') ? 2 : 0) }),
+    onHandPlayed: (j, c) => { if (containsHand(c.played, 'two_pair')) j.state.mult = (j.state.mult ?? 0) + 2; },
+  },
+  {
+    id: 'raised_fist', rarity: 'common', cost: 5,
+    onScore: (_j, c) => {
+      const ranks = c.held.filter((h) => !isStone(h)).map((h) => h.rank);
+      if (!ranks.length) return undefined;
+      const low = Math.min(...ranks);
+      return { mult: 2 * (low === 14 ? 11 : Math.min(low, 10)) };
+    },
+  },
 ];
 
 export const JOKERS: Record<string, JokerDef> = Object.fromEntries(JOKER_LIST.map((d) => [d.id, d]));

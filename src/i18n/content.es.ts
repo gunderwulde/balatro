@@ -46,6 +46,19 @@ export const JOKER_TEXT: Record<string, Text> = {
   triboulet: { name: 'Triboulet', desc: 'Cada Rey o Reina que puntúa da ×2 Mult' },
   chicot: { name: 'Chicot', desc: 'Anula el efecto de todos los Boss Blinds' },
   bull: { name: 'Toro', desc: '+2 Fichas por cada $1 que tengas' },
+  walkie_talkie: { name: 'Walkie-Talkie', desc: 'Cada 10 o 4 que puntúa da +10 Fichas y +4 Mult' },
+  smiley_face: { name: 'Carita Sonriente', desc: 'Cada figura que puntúa da +5 Mult' },
+  shoot_the_moon: { name: 'Dispara a la Luna', desc: 'Cada Reina en tu mano da +13 Mult' },
+  arrowhead: { name: 'Punta de Flecha', desc: 'Las cartas ♠ que puntúan dan +50 Fichas' },
+  onyx_agate: { name: 'Ágata Ónix', desc: 'Las cartas ♣ que puntúan dan +7 Mult' },
+  stuntman: { name: 'Doble de Riesgo', desc: '+250 Fichas, -2 tamaño de mano' },
+  bootstraps: { name: 'Bootstraps', desc: '+2 Mult por cada $5 que tengas' },
+  merry_andy: { name: 'Merry Andy', desc: '+3 descartes por ronda, -1 tamaño de mano' },
+  troubadour: { name: 'Trovador', desc: '+2 tamaño de mano, -1 mano por ronda' },
+  square_joker: { name: 'Joker Cuadrado', desc: 'Gana +4 Fichas si juegas exactamente 4 cartas' },
+  runner: { name: 'Corredor', desc: 'Gana +15 Fichas si la mano contiene una Escalera' },
+  spare_trousers: { name: 'Pantalones de Repuesto', desc: 'Gana +2 Mult si la mano contiene Doble Pareja' },
+  raised_fist: { name: 'Puño en Alto', desc: 'Suma el doble del rango de tu carta más baja en mano al Mult' },
 };
 
 export const PLANET_TEXT: Record<string, string> = {
