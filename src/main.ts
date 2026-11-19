@@ -115,17 +115,6 @@ function exitToMenu() {
   menu.show();
 }
 
-/** Centra las cartas entre el título y el primer botón del menú. */
-function centerMenuCards() {
-  const logo = document.querySelector<HTMLElement>('.menu .logo');
-  const first = document.querySelector<HTMLElement>('.menu .menu-body > *');
-  if (!logo || !first) return;
-  const top = logo.getBoundingClientRect().bottom;
-  const bottom = first.getBoundingClientRect().top;
-  const worldH = 2 * camera.position.z * Math.tan((camera.fov * Math.PI) / 360);
-  menuCards.position.y = (0.5 - (top + bottom) / 2 / innerHeight) * worldH;
-}
-
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
@@ -133,6 +122,8 @@ function resize() {
   // escala las cartas del menú para que quepan en pantallas estrechas
   const s = Math.min(0.7, camera.aspect * 0.45);
   menuCards.scale.setScalar(s);
+  // posición fija (sin anclar a los botones): ~40% desde arriba
+  menuCards.position.y = (0.5 - 0.4) * 2 * camera.position.z * Math.tan((camera.fov * Math.PI) / 360);
   post.resize(innerWidth, innerHeight);
   table?.layout();
 }
@@ -142,7 +133,6 @@ resize();
 renderer.setAnimationLoop((t) => {
   bg.update(t, camera.aspect);
   if (mode === 'menu') {
-    centerMenuCards();
     menuCards.children.forEach((m, i) => {
       const k = m.userData.k as number;
       const wob = reduceMotion ? 0 : 1;
