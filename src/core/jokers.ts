@@ -1,5 +1,7 @@
 import { cardIsSuit, isFaceCard, isStone, type Card, type Rank, type Suit } from './cards';
+import type { ConsumableInstance, ConsumableKind } from './consumables';
 import { containsHand, type HandType } from './hands';
+import { EXTRA_JOKERS } from './jokersExtra';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 export type Edition = 'foil' | 'holo' | 'poly' | 'negative';
@@ -29,6 +31,60 @@ export interface ScoreCtx {
   roundHands: HandType[];
   /** Tiradas aleatorias [0,1) (en la vista previa nunca ocurre nada). */
   rng: () => number;
+  /** Vista previa (sin azar). */
+  preview: boolean;
+  /** Multiplicador de probabilidades (Oops! All 6s). */
+  odds: number;
+  jokers: JokerInstance[];
+  jokerSlots: number;
+}
+
+/** Lo que un joker puede hacer en la run (lo implementa `Run`). */
+export interface JokerHost {
+  money: number;
+  jokers: JokerInstance[];
+  consumables: ConsumableInstance[];
+  hand: Card[];
+  fullDeck: Card[];
+  odds: number;
+  rngFor(tag: string): { next(): number; int(n: number): number };
+  levelUp(hand: HandType): void;
+  addConsumable(kind: ConsumableKind, id: string, edition?: 'negative'): void;
+  /** Crea un Tarot/Spectral aleatorio (si hay hueco). */
+  createConsumable(kind: 'tarot' | 'spectral'): void;
+  consumableSpace(): number;
+  jokerSpace(): number;
+  addJoker(id: string, edition?: Edition): JokerInstance;
+  addRandomCommonJoker(): void;
+  removeJokers(uids: number[]): void;
+  destroyCards(ids: number[], fromHand?: boolean): void;
+  addCard(t: Omit<Card, 'id' | 'perma'>, toHand: boolean): Card;
+  gainTag(id: string): void;
+  disableBoss(): void;
+}
+
+/** Eventos de la run que ven los jokers (`onEvent`). */
+export type JokerEvent =
+  | { type: 'blind_selected'; blind: 'small' | 'big' | 'boss' }
+  | { type: 'hand_played'; ctx: ScoreCtx; first: boolean; bossTriggered: boolean }
+  | { type: 'lucky'; count: number }
+  | { type: 'cards_destroyed'; cards: Card[] }
+  | { type: 'discard'; cards: Card[]; first: boolean }
+  | { type: 'consumable_used'; kind: ConsumableKind; id: string }
+  | { type: 'sold'; joker: JokerInstance | null }
+  | { type: 'card_added'; card: Card }
+  | { type: 'reroll' }
+  | { type: 'skip_blind' }
+  | { type: 'pack_opened' }
+  | { type: 'pack_skipped' }
+  | { type: 'shop_left' }
+  | { type: 'round_end'; blind: 'small' | 'big' | 'boss' };
+
+/** Datos de fin de ronda para `roundEndMoney`. */
+export interface RoundInfo {
+  money: number;
+  discardsUsed: number;
+  discardsLeft: number;
 }
 
 export interface JokerInstance {
@@ -59,7 +115,13 @@ export interface JokerDef {
   /** Tras puntuar la mano (actualiza estado de jokers que escalan). */
   onHandPlayed?(j: JokerInstance, ctx: ScoreCtx): void;
   onDiscard?(j: JokerInstance, count: number): void;
-  roundEndMoney?(j: JokerInstance, deck: Card[]): number;
+  roundEndMoney?(j: JokerInstance, deck: Card[], info: RoundInfo): number;
+  /** Reacciona a eventos de la run. */
+  onEvent?(j: JokerInstance, ev: JokerEvent, host: JokerHost): void;
+  /** Pasivos que dependen del estado (Turtle Bean). */
+  dynamicPassive?(j: JokerInstance): { handSize?: number };
+  /** Mr. Bones: evita perder si llegaste al 25 % del objetivo (se destruye). */
+  preventsDeath?: boolean;
   /** Repeticiones extra de una carta que puntúa. */
   retriggerScored?(j: JokerInstance, ctx: ScoreCtx, card: Card): number;
   /** Repeticiones extra de una carta en mano. */
@@ -68,7 +130,7 @@ export interface JokerDef {
   copies?: 'right' | 'left';
   /** Al acabar la ronda: true = el joker se destruye (los Eternos son inmunes). */
   onRoundEnd?(j: JokerInstance, rng: () => number): boolean;
-  passive?: { handSize?: number; hands?: number; discards?: number };
+  passive?: { handSize?: number; hands?: number; discards?: number; debt?: number };
   /** Anula el efecto del Boss Blind (Chicot). */
   disablesBoss?: boolean;
 }
@@ -99,7 +161,7 @@ const ODD: Rank[] = [3, 5, 7, 9, 14];
 const FIB: Rank[] = [14, 2, 3, 5, 8];
 
 /** ⚠ verificar valores/costes contra la fuente oficial (GDD §7). */
-export const JOKER_LIST: JokerDef[] = [
+const BASE_JOKERS: JokerDef[] = [
   { id: 'joker', rarity: 'common', cost: 2, onScore: () => ({ mult: 4 }) },
   suitMult('greedy_joker', 'D', 3),
   suitMult('lusty_joker', 'H', 3),
@@ -179,7 +241,7 @@ export const JOKER_LIST: JokerDef[] = [
   { id: 'golden_ticket', rarity: 'common', cost: 5, onCardScored: (_j, _c, card) => (card.enhancement === 'gold' ? { money: 4 } : undefined) },
   {
     id: 'bloodstone', rarity: 'uncommon', cost: 7,
-    onCardScored: (_j, c, card) => (cardIsSuit(card, 'H') && c.rng() < 0.5 ? { xmult: 1.5 } : undefined),
+    onCardScored: (_j, c, card) => (cardIsSuit(card, 'H') && c.rng() < 0.5 * c.odds ? { xmult: 1.5 } : undefined),
   },
   { id: 'gros_michel', rarity: 'common', cost: 5, onScore: () => ({ mult: 15 }), onRoundEnd: (_j, rng) => rng() < 1 / 6 },
   { id: 'cavendish', rarity: 'common', cost: 4, onScore: () => ({ xmult: 3 }), onRoundEnd: (_j, rng) => rng() < 1 / 1000 },
@@ -225,8 +287,8 @@ export const JOKER_LIST: JokerDef[] = [
     onScore: (_j, c) => (c.deck.filter((x) => x.enhancement).length >= 16 ? { xmult: 3 } : undefined),
   },
   { id: 'erosion', rarity: 'uncommon', cost: 6, onScore: (_j, c) => ({ mult: 4 * Math.max(0, 52 - c.deck.length) }) },
-  { id: 'reserved_parking', rarity: 'common', cost: 6, onHeld: (_j, c, card) => (isFace(card) && c.rng() < 0.5 ? { money: 1 } : undefined) },
-  { id: 'business_card', rarity: 'common', cost: 4, onCardScored: (_j, c, card) => (isFace(card) && c.rng() < 0.5 ? { money: 2 } : undefined) },
+  { id: 'reserved_parking', rarity: 'common', cost: 6, onHeld: (_j, c, card) => (isFace(card) && c.rng() < 0.5 * c.odds ? { money: 1 } : undefined) },
+  { id: 'business_card', rarity: 'common', cost: 4, onCardScored: (_j, c, card) => (isFace(card) && c.rng() < 0.5 * c.odds ? { money: 2 } : undefined) },
   { id: 'card_sharp', rarity: 'uncommon', cost: 6, onScore: (_j, c) => (c.roundHands.includes(c.handType) ? { xmult: 3 } : undefined) },
   {
     id: 'obelisk', rarity: 'rare', cost: 8,
@@ -287,6 +349,7 @@ export const JOKER_LIST: JokerDef[] = [
   },
 ];
 
+export const JOKER_LIST: JokerDef[] = [...BASE_JOKERS, ...EXTRA_JOKERS];
 export const JOKERS: Record<string, JokerDef> = Object.fromEntries(JOKER_LIST.map((d) => [d.id, d]));
 
 export const EDITION_COST: Record<Edition, number> = { foil: 2, holo: 3, poly: 5, negative: 5 };

@@ -47,6 +47,8 @@ export interface Shop {
   vouchers: (string | null)[];
   rerollCost: number;
   rerolls: number;
+  /** Relanzamientos gratis restantes (Chaos the Clown). */
+  free?: number;
 }
 
 export const REROLL_BASE = 5;

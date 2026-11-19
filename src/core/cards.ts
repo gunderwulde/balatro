@@ -35,12 +35,27 @@ export function chipValue(r: Rank): number {
 }
 
 export const isStone = (c: Card) => c.enhancement === 'stone';
-export const isFaceCard = (c: Card) => !isStone(c) && c.rank >= 11 && c.rank <= 13;
+/**
+ * Reglas activas por jokers que cambian cómo se leen las cartas/manos (Pareidolia, Smeared, Four Fingers, Shortcut).
+ * Estado de módulo: lo fijan `setRules` (desde Run y makeCtx) justo antes de evaluar.
+ */
+export const rules = { pareidolia: false, smeared: false, fourFingers: false, shortcut: false };
+export function setRules(jokers: Iterable<{ id: string }>): void {
+  const ids = new Set([...jokers].map((j) => j.id));
+  rules.pareidolia = ids.has('pareidolia');
+  rules.smeared = ids.has('smeared_joker');
+  rules.fourFingers = ids.has('four_fingers');
+  rules.shortcut = ids.has('shortcut');
+}
+
+export const isFaceCard = (c: Card) => !isStone(c) && (rules.pareidolia || (c.rank >= 11 && c.rank <= 13));
+
+const SUIT_PARTNER: Record<Suit, Suit> = { S: 'C', C: 'S', H: 'D', D: 'H' };
 
 /** Las cartas Wild cuentan como todos los palos; Stone no tiene palo. */
 export function cardIsSuit(c: Card, suit: Suit): boolean {
   if (isStone(c)) return false;
-  return c.enhancement === 'wild' || c.suit === suit;
+  return c.enhancement === 'wild' || c.suit === suit || (rules.smeared && SUIT_PARTNER[c.suit] === suit);
 }
 
 /** Fichas por rango de la carta (Stone no tiene rango). */

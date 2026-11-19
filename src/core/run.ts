@@ -1,4 +1,4 @@
-import { cardIsSuit, createDeck, isFaceCard, shuffle, RANKS, SUITS, type Card } from './cards';
+import { cardIsSuit, createDeck, isFaceCard, setRules, shuffle, RANKS, SUITS, type Card } from './cards';
 import { anteBase, stakeRules, type StakeRules } from './stakes';
 import {
   BASE_CONSUMABLE_SLOTS, CONSUMABLES, type ConsumableInstance, type ConsumableKind,
@@ -6,7 +6,7 @@ import {
 import { BOSSES, pickBoss, type BossDef } from './bosses';
 import { applyConsumable, type EffectHost } from './effects';
 import { evaluateHand, type HandType } from './hands';
-import { EDITION_COST, JOKERS, jokerActive, sellValue, type Edition, type JokerInstance } from './jokers';
+import { EDITION_COST, JOKER_LIST, JOKERS, jokerActive, sellValue, type Edition, type JokerEvent, type JokerInstance } from './jokers';
 import { PLANET_BY_ID, PLANETS } from './planets';
 import { Rng } from './rng';
 import { makeCtx, scoreHand, type ScoreOptions, type ScoreResult } from './scoring';
@@ -135,6 +135,8 @@ export class Run implements EffectHost {
   disabledJoker: number | null = null;
   /** Tipos de mano jugados en esta ronda (Eye, Mouth). */
   roundHandTypes: HandType[] = [];
+  /** Descartes usados en la ronda (Delayed Gratification, Burnt Joker…). */
+  discardsUsed = 0;
   readonly fullDeck: Card[];
   /** Mazo y Stake de la run. */
   deckId: string;
@@ -256,7 +258,33 @@ export class Run implements EffectHost {
   }
 
   private passive(key: 'handSize' | 'hands' | 'discards'): number {
-    return this.jokers.reduce((n, j) => n + (jokerActive(j) ? JOKERS[j.id].passive?.[key] ?? 0 : 0), 0);
+    return this.jokers.reduce((n, j) => {
+      if (!jokerActive(j)) return n;
+      const d = JOKERS[j.id];
+      const p = (d.dynamicPassive?.(j) ?? d.passive) as { handSize?: number; hands?: number; discards?: number } | undefined;
+      return n + (p?.[key] ?? 0);
+    }, 0);
+  }
+
+  /** Deuda máxima permitida (Credit Card). */
+  get debtLimit(): number {
+    return this.jokers.reduce((n, j) => n + (jokerActive(j) ? JOKERS[j.id].passive?.debt ?? 0 : 0), 0);
+  }
+
+  /** Multiplicador de probabilidades (Oops! All 6s). */
+  get odds(): number {
+    return 2 ** this.jokers.filter((j) => j.id === 'oops_all_6s' && jokerActive(j)).length;
+  }
+
+  has(jokerId: string): boolean {
+    return this.jokers.some((j) => j.id === jokerId && jokerActive(j));
+  }
+
+  private emit(ev: JokerEvent) {
+    for (const j of [...this.jokers]) {
+      if (!this.jokers.includes(j) || !jokerActive(j)) continue;
+      JOKERS[j.id].onEvent?.(j, ev, this);
+    }
   }
 
   consumableSpace(): number {
@@ -279,16 +307,18 @@ export class Run implements EffectHost {
     this.score = 0;
     this.bossDisabled = false;
     this.roundHandTypes = [];
+    this.discardsUsed = 0;
     this.roundHandSizeBonus = 3 * this.consumeTags((t) => t === 'juggle');
     const boss = this.activeBoss;
     this.handsLeft = boss?.singleHand ? 1 : this.maxHands + this.passive('hands');
-    this.discardsLeft = boss?.noDiscards ? 0 : this.maxDiscards + this.passive('discards');
+    this.discardsLeft = boss?.noDiscards ? 0 : Math.max(0, this.maxDiscards + this.passive('discards'));
     if (boss?.shuffleJokers) this.jokers = shuffle(this.jokers, this.rngFor('amber'));
     this.drawPile = shuffle(this.fullDeck, this.rng);
     this.discardPile = [];
     this.hand = [];
     this.draw();
     this.rollDisabledJoker();
+    this.emit({ type: 'blind_selected', blind: this.blind });
   }
 
   /** Salta Small/Big y recibe su Tag. El Boss no se puede saltar. */
@@ -298,6 +328,7 @@ export class Run implements EffectHost {
     const tag = this.offeredTag!;
     this.skipped++;
     this.gainTag(tag);
+    this.emit({ type: 'skip_blind' });
     this.nextBlind();
   }
 
@@ -325,6 +356,7 @@ export class Run implements EffectHost {
   // ---------- Puntuación ----------
 
   isDebuffed(c: Card): boolean {
+    setRules(this.jokers);
     const b = this.activeBoss;
     if (!b) return false;
     if (b.debuffAll) return true;
@@ -335,6 +367,7 @@ export class Run implements EffectHost {
 
   /** Motivo por el que el Boss impide jugar estas cartas (null si se puede). */
   playError(cards: Card[]): string | null {
+    setRules(this.jokers);
     const b = this.activeBoss;
     if (!b || !cards.length) return null;
     if (b.mustPlayFive && cards.length !== 5) return 'boss_five';
@@ -350,6 +383,7 @@ export class Run implements EffectHost {
   }
 
   private scoreOptions(played: Card[], rng?: () => number): ScoreOptions {
+    setRules(this.jokers);
     const ids = new Set(played.map((c) => c.id));
     const boss = this.activeBoss;
     return {
@@ -363,6 +397,7 @@ export class Run implements EffectHost {
       handPlays: this.handPlays,
       deck: this.fullDeck,
       roundHands: this.roundHandTypes,
+      jokerSlots: this.jokerSlots,
       rng,
       debuff: boss ? (c) => this.isDebuffed(c) : undefined,
       flint: !!boss?.flint,
@@ -398,6 +433,10 @@ export class Run implements EffectHost {
     for (const j of this.jokers) JOKERS[j.id].onHandPlayed?.(j, ctx);
     this.handPlays[score.hand] = (this.handPlays[score.hand] ?? 0) + 1;
     this.roundHandTypes.push(score.hand);
+    const oxHit = !!boss?.ox && (this.handPlays[score.hand] ?? 0) >= Math.max(...(Object.values(this.handPlays) as number[]));
+    const bossTriggered = !!boss && (!!boss.toothMoney || !!boss.arm || oxHit || cards.some((c) => this.isDebuffed(c)));
+    this.emit({ type: 'hand_played', ctx, first: this.roundHandTypes.length === 1, bossTriggered });
+    if (score.lucky) this.emit({ type: 'lucky', count: score.lucky });
 
     if (boss?.toothMoney) this.money -= cards.length;
     if (boss?.ox && (this.handPlays[score.hand] ?? 0) >= Math.max(...Object.values(this.handPlays) as number[])) this.money = 0;
@@ -408,6 +447,13 @@ export class Run implements EffectHost {
       return { score, cleared: true, lost: false };
     }
     if (this.handsLeft === 0) {
+      // Mr. Bones: sobrevives si llegaste al 25 % del objetivo (y se destruye).
+      const bones = this.jokers.find((j) => JOKERS[j.id].preventsDeath);
+      if (bones && this.score >= this.target * 0.25) {
+        this.removeJokers([bones.uid]);
+        this.clearRound(score.hand, held);
+        return { score, cleared: true, lost: false };
+      }
       this.phase = 'lost';
       return { score, cleared: false, lost: true };
     }
@@ -432,6 +478,8 @@ export class Run implements EffectHost {
     this.discardsLeft--;
     this.discardPile.push(...cards);
     for (const j of this.jokers) JOKERS[j.id].onDiscard?.(j, cards.length);
+    this.emit({ type: 'discard', cards, first: this.discardsUsed === 0 });
+    this.discardsUsed++;
     // Sello púrpura: crea un Tarot al descartar.
     for (const c of cards) {
       if (c.seal === 'purple' && this.consumableSpace() > 0) {
@@ -443,11 +491,12 @@ export class Run implements EffectHost {
   }
 
   private clearRound(lastHand: HandType, held: Card[]) {
-    const jokerBonus = this.jokers.reduce((n, j) => n + (JOKERS[j.id].roundEndMoney?.(j, this.fullDeck) ?? 0), 0);
+    const jokerBonus = this.jokers.reduce((n, j) => n + (JOKERS[j.id].roundEndMoney?.(j, this.fullDeck, { money: this.money, discardsUsed: this.discardsUsed, discardsLeft: this.discardsLeft }) ?? 0), 0);
     // Jokers que se destruyen al final de la ronda (Gros Michel, Ice Cream…); los Eternos son inmunes.
     const deathRng = this.rngFor('jokerdeath');
     const dying = this.jokers.filter((j) => JOKERS[j.id].onRoundEnd?.(j, () => deathRng.next()) && j.sticker !== 'eternal');
     if (dying.length) this.removeJokers(dying.map((j) => j.uid));
+    this.emit({ type: 'round_end', blind: this.blind });
     const cash = computeCashout(this.blind, this.handsLeft, this.money, jokerBonus, this.interestCap);
     cash.heldBonus = 3 * held.filter((c) => c.enhancement === 'gold').length;
     if (this.blind === 'boss') cash.tagBonus = 25 * this.consumeTags((t) => t === 'investment');
@@ -515,6 +564,7 @@ export class Run implements EffectHost {
       throw e;
     }
     if (inst.kind !== 'spectral' && inst.id !== 'fool') this.lastConsumed = { kind: inst.kind, id: inst.id };
+    this.emit({ type: 'consumable_used', kind: inst.kind, id: inst.id });
   }
 
   sellConsumable(uid: number): void {
@@ -523,11 +573,12 @@ export class Run implements EffectHost {
     if (i < 0) throw new Error('Consumible no encontrado');
     this.money += Math.max(1, Math.floor(this.consumables[i].cost / 2));
     this.consumables.splice(i, 1);
+    this.emit({ type: 'sold', joker: null });
   }
 
   // ---------- Tags ----------
 
-  private gainTag(id: string) {
+  gainTag(id: string) {
     const copies = this.tags.includes('double') && id !== 'double' ? 2 : 1;
     if (copies === 2) this.tags.splice(this.tags.indexOf('double'), 1);
     for (let i = 0; i < copies; i++) {
@@ -554,7 +605,7 @@ export class Run implements EffectHost {
   // ---------- Tienda ----------
 
   private rollCtx(): RollCtx {
-    return { handPlays: this.handPlays, vouchers: this.vouchers, ownedJokers: new Set(this.jokers.map((j) => j.id)), spectralShop: this.spectralShop, stake: this.stake };
+    return { handPlays: this.handPlays, vouchers: this.vouchers, ownedJokers: this.has('showman') ? new Set<string>() : new Set(this.jokers.map((j) => j.id)), spectralShop: this.spectralShop, stake: this.stake };
   }
 
   private get shopSlots(): number {
@@ -569,10 +620,11 @@ export class Run implements EffectHost {
     this.phase = 'shop';
     this.shopCount++;
     const d6 = this.consumeTags((t) => t === 'd6') > 0;
-    this.shop = { items: [], packs: [], vouchers: [], rerollCost: d6 ? 0 : this.baseRerollCost(), rerolls: 0 };
+    this.shop = { items: [], packs: [], vouchers: [], rerollCost: d6 ? 0 : this.baseRerollCost(), rerolls: 0, free: this.jokers.filter((j) => j.id === 'chaos_the_clown' && jokerActive(j)).length };
     this.fillShopItems();
     const prng = this.shopRng('packs');
     this.shop.packs = [rollPackOffer(prng), rollPackOffer(prng)];
+    if (this.has('astronomer')) for (const p of this.shop.packs) if (p?.kind === 'celestial') p.cost = 0;
     const free = this.consumeTags((t) => t === 'coupon') > 0;
     if (free) {
       for (const it of this.shop.items) if (it) it.cost = 0;
@@ -604,11 +656,12 @@ export class Run implements EffectHost {
 
   private fillShopItems() {
     const rng = this.shopRng('items');
-    const taken = new Set(this.jokers.map((j) => j.id));
+    const taken = this.has('showman') ? new Set<string>() : new Set(this.jokers.map((j) => j.id));
     this.shop!.items = [];
     for (let i = 0; i < this.shopSlots; i++) {
       const it = rollShopItem(rng, this.rollCtx(), taken);
-      if (it?.kind === 'joker') taken.add(it.id);
+      if (it?.kind === 'joker' && !this.has('showman')) taken.add(it.id);
+      if (it?.kind === 'planet' && this.has('astronomer')) it.cost = 0;
       this.shop!.items.push(it);
     }
   }
@@ -616,10 +669,14 @@ export class Run implements EffectHost {
   reroll(): void {
     this.expectShop();
     const s = this.shop!;
-    this.spend(s.rerollCost);
+    if ((s.free ?? 0) > 0) s.free = (s.free ?? 0) - 1;
+    else {
+      this.spend(s.rerollCost);
+      s.rerollCost++;
+    }
     s.rerolls++;
-    s.rerollCost++;
     this.fillShopItems();
+    this.emit({ type: 'reroll' });
   }
 
   buy(index: number): void {
@@ -640,6 +697,7 @@ export class Run implements EffectHost {
     this.spend(pack.cost);
     this.shop!.packs[index] = null;
     this.openPack = openPackOf(this.shopRng(`pack${index}`), pack, this.rollCtx());
+    this.emit({ type: 'pack_opened' });
   }
 
   /** Elige una carta del pack abierto (gratis). Los Mega permiten elegir dos. */
@@ -658,6 +716,7 @@ export class Run implements EffectHost {
 
   skipPack(): void {
     this.expectShop();
+    if (this.openPack) this.emit({ type: 'pack_skipped' });
     this.openPack = null;
   }
 
@@ -698,6 +757,7 @@ export class Run implements EffectHost {
   leaveShop(): void {
     this.expectShop();
     if (this.openPack) throw new Error('Termina de elegir el pack');
+    this.emit({ type: 'shop_left' });
     this.shop = null;
     this.nextBlind();
   }
@@ -708,9 +768,13 @@ export class Run implements EffectHost {
     if (i < 0) throw new Error('Joker no encontrado');
     if (this.jokers[i].sticker === 'eternal') throw new Error('Un joker Eterno no se puede vender');
     this.money += sellValue(this.jokers[i]);
-    this.jokers.splice(i, 1);
+    const [sold] = this.jokers.splice(i, 1);
+    setRules(this.jokers);
     // Verdant Leaf: vender un joker levanta el efecto.
     if (this.phase === 'playing' && this.activeBoss?.debuffAll) this.bossDisabled = true;
+    const ev: JokerEvent = { type: 'sold', joker: sold };
+    JOKERS[sold.id].onEvent?.(sold, ev, this);
+    this.emit(ev);
   }
 
   /** Reordena la mano (arrastre). Debe contener exactamente las mismas cartas. */
@@ -780,7 +844,7 @@ export class Run implements EffectHost {
     r.maxHands = d.maxHands; r.maxDiscards = d.maxDiscards; r.baseHandSize = d.baseHandSize;
     r.handSizePenalty = d.handSizePenalty; r.skipped = d.skipped;
     r.levels = d.levels; r.handPlays = d.handPlays;
-    r.jokers = d.jokers; r.consumables = d.consumables; r.vouchers = new Set(d.vouchers); r.tags = d.tags;
+    r.jokers = d.jokers; setRules(r.jokers); r.consumables = d.consumables; r.vouchers = new Set(d.vouchers); r.tags = d.tags;
     r.lastConsumed = d.lastConsumed; r.shop = d.shop;
     r.setDeck(d.fullDeck);
     r.discovered = new Set(d.discovered); r.bestHand = d.bestHand;
@@ -806,17 +870,38 @@ export class Run implements EffectHost {
     this.discovered.add(id);
     const j: JokerInstance = { uid: this.nextUid++, id, edition, cost: JOKERS[id].cost + (edition ? EDITION_COST[edition] : 0), state: {} };
     this.jokers.push(j);
+    setRules(this.jokers);
     return j;
   }
 
   removeJokers(uids: number[]): void {
     this.jokers = this.jokers.filter((j) => !uids.includes(j.uid));
+    setRules(this.jokers);
+  }
+
+  /** Crea un Tarot o Spectral aleatorio (si hay hueco). */
+  createConsumable(kind: 'tarot' | 'spectral'): void {
+    if (this.consumableSpace() <= 0) return;
+    const pool = Object.values(CONSUMABLES).filter((d) => d.kind === kind && d.id !== 'soul' && d.id !== 'black_hole');
+    this.addConsumable(kind, pool[this.rngFor('make' + kind).int(pool.length)].id);
+  }
+
+  addRandomCommonJoker(): void {
+    if (this.jokerSpace() <= 0) return;
+    const pool = JOKER_LIST.filter((d) => d.rarity === 'common');
+    this.addJoker(pool[this.rngFor('riffraff').int(pool.length)].id);
+  }
+
+  /** Anula el efecto del Boss de la ronda (Luchador). */
+  disableBoss(): void {
+    if (this.phase === 'playing') this.bossDisabled = true;
   }
 
   /** Elimina cartas de la partida (mano, mazo y descarte). */
   destroyCards(ids: number[], fromHand = true): void {
     if (!ids.length) return;
     const gone = new Set(ids);
+    const lost = [...this.fullDeck, ...this.hand].filter((c, i, a) => gone.has(c.id) && a.findIndex((x) => x.id === c.id) === i);
     const keep = (c: Card) => !gone.has(c.id);
     if (fromHand) this.hand = this.hand.filter(keep);
     this.drawPile = this.drawPile.filter(keep);
@@ -824,6 +909,7 @@ export class Run implements EffectHost {
     const rest = this.fullDeck.filter(keep);
     this.fullDeck.length = 0;
     this.fullDeck.push(...rest);
+    this.emit({ type: 'cards_destroyed', cards: lost });
   }
 
   addCard(t: CardTemplate, toHand: boolean): Card {
@@ -834,6 +920,7 @@ export class Run implements EffectHost {
     this.fullDeck.push(card);
     if (toHand && this.phase === 'playing') this.hand.push(card);
     else if (this.phase === 'playing') this.drawPile.push(card);
+    this.emit({ type: 'card_added', card });
     return card;
   }
 
@@ -870,7 +957,7 @@ export class Run implements EffectHost {
   }
 
   private spend(cost: number) {
-    if (this.money < cost) throw new Error('Dinero insuficiente');
+    if (this.money - cost < -this.debtLimit) throw new Error('Dinero insuficiente');
     this.money -= cost;
   }
 

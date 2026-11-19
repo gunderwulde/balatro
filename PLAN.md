@@ -61,8 +61,7 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 - **Notas de implementación:** mazos en `core/decks.ts`, Stakes y stickers en `core/stakes.ts`, perfil puro en `core/profile.ts` (E/S en `ui/storage.ts`). Se guarda solo entre rondas (selección de ciega y tienda). Los desbloqueos son de Stakes por mazo (los mazos están todos disponibles). Endless: el objetivo post-Ante 8 es una aproximación. Visuales sin verificar en navegador.
 
 ## Fase 7 — Contenido completo (iterativo, 1–2 semanas)
-  - Lote 1: 13 jokers. Lote 2 (motor): reintentos de cartas y de mano, copia (Blueprint/Brainstorm), dinero por carta, destrucción al fin de ronda y jokers que leen el mazo; +18 jokers (62 en total). Lote 3: +13 (Wee, Seeing Double, Flower Pot, Loyalty Card, Driver's License, Erosion, Reserved Parking, Business Card, Card Sharp, Obelisk, Ramen, Hiker, Egg) = 75. Pendiente: resto hasta 150; Ramen, Hiker, Egg y similares requieren más hooks.
-- [ ] Completar 150 jokers por lotes de ~20 (con test cada uno).
+- [x] Completar 150 jokers (con test cada uno). Lotes 1–3 (75) usan los hooks de puntuación; el lote 4 (+63 → 150 textos) añade el sistema de eventos `onEvent` (blind_selected, hand_played, discard, sold, round_end, reroll, pack_*, cards_destroyed, card_added, lucky…), reglas globales de mano (Four Fingers, Shortcut, Smeared, Pareidolia, Splash), deuda (Credit Card), reroll gratis (Chaos), Showman, Astronomer, Mr. Bones y legendarios Canio/Yorick/Perkeo. Aproximaciones: Idol/Mail-In/Castle eligen el objetivo al azar del mazo/rangos; Matador se activa con efectos de Boss simplificados; Cavendish puede salir directamente en tienda.
 - [ ] Resto de bosses, tarots, spectrals, tags, challenges.
 - [ ] Verificar todos los valores `⚠ verificar` del GDD contra la fuente oficial.
 

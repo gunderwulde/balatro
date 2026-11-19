@@ -1,4 +1,4 @@
-import { cardChips, type Card } from './cards';
+import { cardChips, setRules, type Card } from './cards';
 import { evaluateHand, type HandType } from './hands';
 import { JOKERS, jokerActive, type Effect, type JokerDef, type JokerInstance, type ScoreCtx } from './jokers';
 
@@ -64,6 +64,8 @@ export interface ScoreResult {
   money: number;
   /** Cartas de cristal que se rompen. */
   destroyed: number[];
+  /** Veces que se disparó una carta Lucky (Lucky Cat). */
+  lucky: number;
 }
 
 export interface ScoreOptions {
@@ -91,10 +93,15 @@ export interface ScoreOptions {
   deck?: Card[];
   /** Tipos de mano ya jugados en la ronda. */
   roundHands?: HandType[];
+  jokerSlots?: number;
 }
 
 export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
-  const { hand, scoring } = evaluateHand(played);
+  const jokers = opts.jokers ?? [];
+  setRules(jokers);
+  const ev = evaluateHand(played);
+  const hand = ev.hand;
+  const scoring = jokers.some((j) => j.id === 'splash') ? played : ev.scoring;
   return {
     handType: hand,
     played,
@@ -109,6 +116,10 @@ export function makeCtx(played: Card[], opts: ScoreOptions = {}): ScoreCtx {
     deck: opts.deck ?? [],
     roundHands: opts.roundHands ?? [],
     rng: opts.rng ?? (() => 1),
+    preview: !opts.rng,
+    odds: 2 ** jokers.filter((j) => j.id === 'oops_all_6s').length,
+    jokers,
+    jokerSlots: opts.jokerSlots ?? 5,
   };
 }
 
@@ -128,6 +139,7 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
   const events: ScoreEvent[] = [{ type: 'hand', hand: ctx.handType, chips, mult }];
   let money = 0;
   const destroyed: number[] = [];
+  let lucky = 0;
 
   const push = (type: 'chips' | 'mult' | 'xmult' | 'money', value: number, source: EventSource) => {
     if (type === 'chips') chips += value;
@@ -166,8 +178,8 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
         case 'stone': push('chips', STONE_CHIPS, src); break;
         case 'glass': push('xmult', GLASS_XMULT, src); break;
         case 'lucky':
-          if (rng() < LUCKY_MULT_CHANCE) push('mult', LUCKY_MULT, src);
-          if (rng() < LUCKY_MONEY_CHANCE) push('money', LUCKY_MONEY, src);
+          if (rng() < LUCKY_MULT_CHANCE * ctx.odds) { push('mult', LUCKY_MULT, src); lucky++; }
+          if (rng() < LUCKY_MONEY_CHANCE * ctx.odds) { push('money', LUCKY_MONEY, src); lucky++; }
           break;
         default: break;
       }
@@ -177,7 +189,7 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
       jokers.forEach((owner, i) => apply(eff[i][0].onCardScored?.(eff[i][1], ctx, card), { kind: 'joker', id: owner.uid }));
     }
     if (card.seal === 'gold') push('money', GOLD_SEAL_MONEY, src);
-    if (card.enhancement === 'glass' && rng() < GLASS_BREAK_CHANCE) destroyed.push(card.id);
+    if (card.enhancement === 'glass' && rng() < GLASS_BREAK_CHANCE * ctx.odds) destroyed.push(card.id);
   }
 
   for (const card of ctx.held) {
@@ -206,5 +218,5 @@ export function scoreHand(played: Card[], opts: ScoreOptions = {}): ScoreResult 
     if (avg !== mult) push('mult', avg - mult, src);
   }
 
-  return { hand: ctx.handType, chips, mult, total: Math.floor(chips * mult), scoring: ctx.scoring, events, money, destroyed };
+  return { hand: ctx.handType, chips, mult, total: Math.floor(chips * mult), scoring: ctx.scoring, events, money, destroyed, lucky };
 }

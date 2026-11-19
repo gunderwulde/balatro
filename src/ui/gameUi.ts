@@ -318,7 +318,7 @@ export class GameUI {
       .map((it, i) => {
         if (!it) return '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>';
         const noRoom = this.noRoom(it);
-        const dis = r.money < it.cost || noRoom;
+        const dis = r.money + r.debtLimit < it.cost || noRoom;
         return `<div class="shop-slot">${this.itemCard(it)}<button class="btn btn-orange price" data-act="buy" data-i="${i}" ${dis ? 'disabled' : ''}>${noRoom ? 'Sin espacio' : this.priceLabel(it.cost)}</button></div>`;
       })
       .join('');
@@ -327,14 +327,14 @@ export class GameUI {
         if (!p) return '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>';
         const [n, picks] = PACK_SHAPE[p.kind][p.size];
         return `<div class="shop-slot"><div class="icard"><img src="${packArt(p.kind)}" draggable="false"/><div class="tip"><b>${this.packName(p.kind, p.size)}</b><p>Elige ${picks} de ${n} ${PACK_DESC[p.kind]}</p></div></div>
-          <button class="btn btn-orange price" data-act="pack" data-i="${i}" ${r.money < p.cost ? 'disabled' : ''}>${this.priceLabel(p.cost)}</button></div>`;
+          <button class="btn btn-orange price" data-act="pack" data-i="${i}" ${r.money + r.debtLimit < p.cost ? 'disabled' : ''}>${this.priceLabel(p.cost)}</button></div>`;
       })
       .join('');
     const vouchers = s.vouchers
       .map((v, i) =>
         v
           ? `<div class="shop-slot"><div class="icard"><img src="${voucherArt(v)}" draggable="false"/><div class="tip"><b>${VOUCHER_TEXT[v].name}</b><span class="rar r-planet">Voucher</span><p>${VOUCHER_TEXT[v].desc}</p></div></div>
-         <button class="btn btn-orange price" data-act="voucher" data-i="${i}" ${r.money < VOUCHER_COST ? 'disabled' : ''}>$${VOUCHER_COST}</button></div>`
+         <button class="btn btn-orange price" data-act="voucher" data-i="${i}" ${r.money + r.debtLimit < VOUCHER_COST ? 'disabled' : ''}>$${VOUCHER_COST}</button></div>`
           : '<div class="shop-slot sold"><div class="empty-slot">Vendido</div></div>',
       )
       .join('');
@@ -346,7 +346,7 @@ export class GameUI {
         <div class="shop-group"><h3>Voucher</h3><div class="shop-row">${vouchers}</div></div>
       </div>
       <div class="row shop-actions">
-        <button class="btn btn-red" data-act="reroll" ${r.money < s.rerollCost ? 'disabled' : ''}>Relanzar $${s.rerollCost}</button>
+        <button class="btn btn-red" data-act="reroll" ${(s.free ?? 0) === 0 && r.money + r.debtLimit < s.rerollCost ? 'disabled' : ''}>Relanzar ${(s.free ?? 0) > 0 ? 'gratis' : '$' + s.rerollCost}</button>
         <button class="btn btn-blue" data-act="leave">Siguiente ronda</button>
       </div>
     </div>`;
