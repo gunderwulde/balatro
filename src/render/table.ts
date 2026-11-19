@@ -7,6 +7,8 @@ export const CW = CARD_W / 32;
 export const CH = CARD_H / 32;
 /** Escala de las cartas en la mesa de juego. */
 export const TABLE_SCALE = 0.75;
+/** Las pilas de mazo y descartes, relativas a las cartas de la mesa. */
+export const PILE_SCALE = 0.75;
 
 export function makeCardMesh(card: Card): THREE.Group {
   const g = new THREE.Group();
@@ -89,7 +91,7 @@ export class Table {
   private makePile(): THREE.Group {
     const p = makeCardMesh({ id: -1, rank: 14, suit: 'S' });
     p.children[0].visible = false;
-    p.scale.setScalar(TABLE_SCALE);
+    p.scale.setScalar(TABLE_SCALE * PILE_SCALE);
     p.rotation.y = Math.PI;
     return p;
   }
@@ -204,8 +206,9 @@ export class Table {
     const n = this.objs.length;
     const edge = this.camera.aspect * 7.56 * 0.5 * 0.86;
     const cardW = CW * TABLE_SCALE;
-    // Las cartas de los extremos no deben tocar las pilas: queda un hueco de media carta.
-    const halfSpan = Math.max(0, edge - cardW * 1.1);
+    // Las cartas de los extremos no deben tocar las pilas: queda un pequeño hueco.
+    const pileW = cardW * PILE_SCALE;
+    const halfSpan = Math.max(0, edge - (cardW + pileW) / 2 - cardW * 0.15);
     const spacing = Math.min(cardW * 0.7, n > 1 ? (2 * halfSpan) / (n - 1) : Infinity);
     this.objs.forEach((o, i) => {
       const k = i - (n - 1) / 2;
