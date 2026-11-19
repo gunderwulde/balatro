@@ -624,6 +624,8 @@ export class GameUI {
     this.playErr = sel.length ? this.run.playError(sel) : null;
     if (this.playErr) {
       this.setPreview(MSG_TEXT[this.playErr] ?? this.playErr, 0, 0);
+    } else if (sel.some((c) => this.run.faceDown.has(c.id))) {
+      this.setPreview('???', 0, 0);
     } else if (sel.length) {
       // La vista previa es la puntuación base + cartas (sin jokers), como en el juego original.
       const res = this.run.preview(sel);

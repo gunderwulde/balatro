@@ -1,18 +1,19 @@
+import { CHALLENGE_LIST } from '../core/challenges';
 import { CONSUMABLE_LIST } from '../core/consumables';
 import { DECK_IDS, DEFAULT_DECK } from '../core/decks';
 import { JOKER_LIST } from '../core/jokers';
 import { unlockedStake } from '../core/profile';
 import { MAX_STAKE, STAKE_IDS } from '../core/stakes';
 import { JOKER_TEXT, PLANET_TEXT } from '../i18n/content.es';
-import { DECK_TEXT, SPECTRAL_TEXT, STAKE_TEXT, TAROT_TEXT } from '../i18n/content2.es';
+import { CHALLENGE_TEXT, DECK_TEXT, SPECTRAL_TEXT, STAKE_TEXT, TAROT_TEXT } from '../i18n/content2.es';
 import { consumableArt, jokerArt } from '../render/itemArt';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { loadProfile, loadRunSave } from './storage';
 
-type Screen = 'main' | 'play' | 'options' | 'collection';
+type Screen = 'main' | 'play' | 'options' | 'collection' | 'challenges';
 
 export interface MenuCallbacks {
-  onStart(seed: string, deck: string, stake: number): void;
+  onStart(seed: string, deck: string, stake: number, challenge?: string): void;
   onContinue(): void;
   onSettings(s: Settings): void;
 }
@@ -89,6 +90,20 @@ export class MainMenu {
         </div>`;
   }
 
+  private challengesHtml(): string {
+    const won = new Set(this.profile.challengeWins ?? []);
+    const items = CHALLENGE_LIST.map((c) => {
+      const t = CHALLENGE_TEXT[c.id];
+      return `<button class="challenge" data-challenge="${c.id}"><b>${won.has(c.id) ? '✓ ' : ''}${t.name}</b><span>${t.desc}</span></button>`;
+    }).join('');
+    return `
+        <div class="panel play-panel">
+          <p class="muted">Elige un desafío: mazo y reglas fijas (Stake blanco).</p>
+          <div class="challenge-list">${items}</div>
+          <div class="row"><button class="btn btn-red" data-act="back">Atrás</button></div>
+        </div>`;
+  }
+
   private collectionHtml(): string {
     const p = this.profile;
     const have = new Set(p.discovered);
@@ -127,10 +142,13 @@ export class MainMenu {
       body = `
         ${this.hasSave ? '<button class="btn btn-orange" data-act="continue">Continuar</button>' : ''}
         <button class="btn btn-blue" data-act="play">${this.hasSave ? 'Nueva run' : 'Jugar'}</button>
+        <button class="btn btn-orange" data-act="challenges">Desafíos</button>
         <button class="btn btn-orange" data-act="collection">Colección</button>
         <button class="btn btn-red" data-act="options">Opciones</button>`;
     } else if (this.screen === 'play') {
       body = this.playHtml();
+    } else if (this.screen === 'challenges') {
+      body = this.challengesHtml();
     } else if (this.screen === 'options') {
       const s = this.settings;
       body = `
@@ -162,6 +180,7 @@ export class MainMenu {
           case 'play': return this.go('play');
           case 'continue': return this.cb.onContinue();
           case 'collection': return this.go('collection');
+          case 'challenges': return this.go('challenges');
           case 'options': return this.go('options');
           case 'back': return this.go('main');
           case 'start': {
@@ -170,6 +189,9 @@ export class MainMenu {
           }
         }
       };
+    });
+    this.root.querySelectorAll<HTMLButtonElement>('[data-challenge]').forEach((b) => {
+      b.onclick = () => this.cb.onStart(randomSeed(), 'plain', 1, b.dataset.challenge);
     });
     this.root.querySelectorAll<HTMLButtonElement>('[data-deck]').forEach((b) => {
       b.onclick = () => {

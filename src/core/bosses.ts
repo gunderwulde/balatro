@@ -41,6 +41,16 @@ export interface BossDef {
   shuffleJokers?: boolean;
   /** Un joker aleatorio queda anulado cada mano (Crimson Heart). */
   disableJoker?: boolean;
+  /** La primera mano de la ronda se roba boca abajo (House). */
+  faceDownFirst?: boolean;
+  /** Cada carta robada tiene 1/7 de venir boca abajo (Wheel). */
+  faceDownRandom?: boolean;
+  /** Las cartas robadas tras jugar vienen boca abajo (Fish). */
+  faceDownAfterPlay?: boolean;
+  /** Las figuras se roban boca abajo (Mark). */
+  faceDownFace?: boolean;
+  /** Siempre hay una carta de la mano forzada a estar seleccionada (Cerulean Bell). */
+  forceCard?: boolean;
 }
 
 export const BOSS_LIST: BossDef[] = [
@@ -51,6 +61,10 @@ export const BOSS_LIST: BossDef[] = [
   { id: 'the_head', minAnte: 1, mult: 2, debuffSuit: 'H' },
   { id: 'the_psychic', minAnte: 1, mult: 2, mustPlayFive: true },
   { id: 'the_manacle', minAnte: 1, mult: 2, handSizeMinus: 1 },
+  { id: 'the_house', minAnte: 2, mult: 2, faceDownFirst: true },
+  { id: 'the_wheel', minAnte: 2, mult: 2, faceDownRandom: true },
+  { id: 'the_fish', minAnte: 2, mult: 2, faceDownAfterPlay: true },
+  { id: 'the_mark', minAnte: 2, mult: 2, faceDownFace: true },
   { id: 'the_wall', minAnte: 2, mult: 4 },
   { id: 'the_arm', minAnte: 2, mult: 2, arm: true },
   { id: 'the_water', minAnte: 2, mult: 2, noDiscards: true },
@@ -65,6 +79,7 @@ export const BOSS_LIST: BossDef[] = [
   { id: 'the_ox', minAnte: 6, mult: 2, ox: true },
   { id: 'amber_acorn', minAnte: 8, mult: 2, finisher: true, shuffleJokers: true },
   { id: 'verdant_leaf', minAnte: 8, mult: 2, finisher: true, debuffAll: true },
+  { id: 'cerulean_bell', minAnte: 8, mult: 2, finisher: true, forceCard: true },
   { id: 'violet_vessel', minAnte: 8, mult: 6, finisher: true },
   { id: 'crimson_heart', minAnte: 8, mult: 2, finisher: true, disableJoker: true },
 ];

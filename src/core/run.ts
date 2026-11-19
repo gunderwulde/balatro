@@ -3,6 +3,7 @@ import { anteBase, stakeRules, type StakeRules } from './stakes';
 import {
   BASE_CONSUMABLE_SLOTS, CONSUMABLES, type ConsumableInstance, type ConsumableKind,
 } from './consumables';
+import { CHALLENGES, transformDeck, type ChallengeDef } from './challenges';
 import { BOSSES, pickBoss, type BossDef } from './bosses';
 import { applyConsumable, type EffectHost } from './effects';
 import { evaluateHand, type HandType } from './hands';
@@ -46,6 +47,8 @@ export interface Cashout {
 export interface RunOptions {
   deck?: string;
   stake?: number;
+  /** Desafío (fija el mazo de partida y reglas propias). */
+  challenge?: string;
 }
 
 export interface RunSave {
@@ -53,6 +56,7 @@ export interface RunSave {
   seed: string;
   deck: string;
   stake: number;
+  challenge?: string;
   endless: boolean;
   phase: 'blind_select' | 'shop';
   ante: number;
@@ -137,10 +141,16 @@ export class Run implements EffectHost {
   roundHandTypes: HandType[] = [];
   /** Descartes usados en la ronda (Delayed Gratification, Burnt Joker…). */
   discardsUsed = 0;
+  /** Cartas de la mano boca abajo por el Boss (House, Wheel, Fish, Mark). */
+  faceDown = new Set<number>();
+  /** Carta forzada a estar seleccionada (Cerulean Bell). */
+  forcedCard: number | null = null;
   readonly fullDeck: Card[];
   /** Mazo y Stake de la run. */
   deckId: string;
   stake: number;
+  /** Id del desafío en curso (si lo hay). */
+  challenge: string | null = null;
   rules: StakeRules;
   /** Tras ganar el Ante 8 se puede seguir (Endless). */
   endless = false;
@@ -176,6 +186,29 @@ export class Run implements EffectHost {
     this.rules = stakeRules(this.stake);
     this.maxDiscards -= this.rules.discardsMinus;
     this.applyDeck();
+    const ch = opts.challenge ? CHALLENGES[opts.challenge] : undefined;
+    if (ch) {
+      this.challenge = ch.id;
+      this.applyChallenge(ch);
+    }
+  }
+
+  /** Reglas e inventario inicial de un desafío (se aplica sobre el mazo elegido). */
+  private applyChallenge(ch: ChallengeDef) {
+    if (ch.deck) this.setDeck(transformDeck(this.fullDeck, ch.deck));
+    if (ch.money !== undefined) this.money = ch.money;
+    this.maxHands = Math.max(1, this.maxHands + (ch.hands ?? 0));
+    this.maxDiscards = Math.max(0, this.maxDiscards + (ch.discards ?? 0));
+    this.baseHandSize += ch.handSize ?? 0;
+    this.jokerSlotMod += ch.jokerSlots ?? 0;
+    this.consumableSlotMod += ch.consumableSlots ?? 0;
+    for (const v of ch.vouchers ?? []) this.vouchers.add(v);
+    for (const c of ch.consumables ?? []) this.addConsumable(c.kind, c.id);
+    for (const jk of ch.jokers ?? []) {
+      const j = this.addJoker(jk.id);
+      if (jk.eternal) j.sticker = 'eternal';
+    }
+    this.discovered.clear();
   }
 
   /** Modificadores de inicio del mazo elegido. */
@@ -248,6 +281,7 @@ export class Run implements EffectHost {
   }
 
   get interestCap(): number {
+    if (this.challenge && CHALLENGES[this.challenge]?.noInterest) return 0;
     return this.vouchers.has('money_tree') ? 20 : this.vouchers.has('seed_money') ? 10 : 5;
   }
 
@@ -308,6 +342,8 @@ export class Run implements EffectHost {
     this.bossDisabled = false;
     this.roundHandTypes = [];
     this.discardsUsed = 0;
+    this.faceDown.clear();
+    this.forcedCard = null;
     this.roundHandSizeBonus = 3 * this.consumeTags((t) => t === 'juggle');
     const boss = this.activeBoss;
     this.handsLeft = boss?.singleHand ? 1 : this.maxHands + this.passive('hands');
@@ -370,6 +406,7 @@ export class Run implements EffectHost {
     setRules(this.jokers);
     const b = this.activeBoss;
     if (!b || !cards.length) return null;
+    if (b.forceCard && this.forcedCard !== null && !cards.some((c) => c.id === this.forcedCard)) return 'boss_forced';
     if (b.mustPlayFive && cards.length !== 5) return 'boss_five';
     const type = evaluateHand(cards).hand;
     if (b.noRepeatHand && this.roundHandTypes.includes(type)) return 'boss_repeat';
@@ -465,7 +502,7 @@ export class Run implements EffectHost {
         this.discardPile.push(c);
       }
     }
-    this.draw(boss?.serpent ? 3 : undefined);
+    this.draw(boss?.serpent ? 3 : undefined, true);
     this.rollDisabledJoker();
     return { score, cleared: false, lost: false };
   }
@@ -474,6 +511,7 @@ export class Run implements EffectHost {
     this.expect('playing');
     if (this.discardsLeft <= 0) throw new Error('Sin descartes');
     const cards = this.pick(ids);
+    if (this.activeBoss?.forceCard && this.forcedCard !== null && !ids.includes(this.forcedCard)) throw new Error('boss_forced');
     this.take(ids);
     this.discardsLeft--;
     this.discardPile.push(...cards);
@@ -592,6 +630,8 @@ export class Run implements EffectHost {
       else if (id === 'garbage') this.money += this.totalUnusedDiscards;
       else if (id === 'speed') this.money += 5 * this.skipped;
       else if (id === 'boss') this.rerollBossFree();
+      else if (id === 'top_up') for (let k = 0; k < 2; k++) this.addRandomCommonJoker();
+      else if (id === 'orbital') { const h = PLANETS[this.rngFor('orbital').int(PLANETS.length)].hand; for (let k = 0; k < 3; k++) this.levelUp(h); };
     }
   }
 
@@ -812,7 +852,7 @@ export class Run implements EffectHost {
   serialize(): RunSave {
     const data: RunSave = {
       v: 1,
-      seed: this.seed, deck: this.deckId, stake: this.stake, endless: this.endless,
+      seed: this.seed, deck: this.deckId, stake: this.stake, challenge: this.challenge ?? undefined, endless: this.endless,
       phase: this.phase as 'blind_select' | 'shop',
       ante: this.ante, blindIndex: this.blindIndex, money: this.money,
       maxHands: this.maxHands, maxDiscards: this.maxDiscards, baseHandSize: this.baseHandSize,
@@ -837,7 +877,7 @@ export class Run implements EffectHost {
   static restore(save: RunSave): Run {
     if (save.v !== 1) throw new Error('Versión de guardado no soportada');
     const d = JSON.parse(JSON.stringify(save)) as RunSave;
-    const r = new Run(d.seed, { deck: d.deck, stake: d.stake });
+    const r = new Run(d.seed, { deck: d.deck, stake: d.stake, challenge: d.challenge });
     r.endless = d.endless;
     r.phase = d.phase;
     r.ante = d.ante; r.blindIndex = d.blindIndex; r.money = d.money;
@@ -973,9 +1013,25 @@ export class Run implements EffectHost {
   }
 
   /** Roba hasta llenar la mano, o exactamente `exact` cartas (The Serpent). */
-  private draw(exact?: number) {
+  private draw(exact?: number, afterPlay = false) {
     const n = exact ?? Math.max(0, this.handSize - this.hand.length);
-    this.hand.push(...this.drawPile.splice(0, n));
+    const drawn = this.drawPile.splice(0, n);
+    this.hand.push(...drawn);
+    const b = this.activeBoss;
+    if (b) {
+      setRules(this.jokers);
+      for (const c of drawn) {
+        const down =
+          (b.faceDownFirst && this.roundHandTypes.length === 0) ||
+          (b.faceDownAfterPlay && afterPlay) ||
+          (b.faceDownFace && isFaceCard(c)) ||
+          (b.faceDownRandom && this.rngFor('wheel').next() < 1 / 7);
+        if (down) this.faceDown.add(c.id);
+      }
+      if (b.forceCard && this.hand.length && !this.hand.some((c) => c.id === this.forcedCard)) {
+        this.forcedCard = this.hand[this.rngFor('bell').int(this.hand.length)].id;
+      }
+    }
   }
 
   private pick(ids: number[]): Card[] {
@@ -989,6 +1045,7 @@ export class Run implements EffectHost {
   }
 
   private take(ids: number[]) {
+    for (const id of ids) this.faceDown.delete(id);
     this.hand = this.hand.filter((h) => !ids.includes(h.id));
   }
 

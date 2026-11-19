@@ -24,6 +24,8 @@ export const TAG_LIST: TagDef[] = [
   { id: 'd6', trigger: 'shop' },
   { id: 'voucher', trigger: 'shop' },
   { id: 'boss', trigger: 'instant' },
+  { id: 'top_up', trigger: 'instant' },
+  { id: 'orbital', trigger: 'instant' },
   { id: 'double', trigger: 'next_tag' },
   { id: 'charm', trigger: 'shop', freePack: { kind: 'arcana', size: 'mega' } },
   { id: 'meteor', trigger: 'shop', freePack: { kind: 'celestial', size: 'mega' } },

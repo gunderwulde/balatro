@@ -77,14 +77,14 @@ function begin(run: Run) {
   table = new Table(scene, camera, renderer.domElement, run);
   ui = new GameUI(run, table, {
     onExit: exitToMenu,
-    onRestart: () => startGame(randomSeed(), run.deckId, run.stake),
+    onRestart: () => startGame(randomSeed(), run.deckId, run.stake, run.challenge ?? undefined),
     onSync: sync,
   });
 }
 
-function startGame(seed: string, deck: string, stake: number) {
+function startGame(seed: string, deck: string, stake: number, challenge?: string) {
   clearRunSave();
-  begin(new Run(seed, { deck, stake }));
+  begin(new Run(seed, { deck, stake, challenge }));
 }
 
 function continueGame() {

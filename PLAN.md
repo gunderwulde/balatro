@@ -62,8 +62,8 @@ Leyenda: `[ ]` pendiente · `[x]` hecho. Cada fase termina con un **entregable v
 
 ## Fase 7 — Contenido completo (iterativo, 1–2 semanas)
 - [x] Completar 150 jokers (con test cada uno). Lotes 1–3 (75) usan los hooks de puntuación; el lote 4 (+63 → 150 textos) añade el sistema de eventos `onEvent` (blind_selected, hand_played, discard, sold, round_end, reroll, pack_*, cards_destroyed, card_added, lucky…), reglas globales de mano (Four Fingers, Shortcut, Smeared, Pareidolia, Splash), deuda (Credit Card), reroll gratis (Chaos), Showman, Astronomer, Mr. Bones y legendarios Canio/Yorick/Perkeo. Aproximaciones: Idol/Mail-In/Castle eligen el objetivo al azar del mazo/rangos; Matador se activa con efectos de Boss simplificados; Cavendish puede salir directamente en tienda.
-- [ ] Resto de bosses, tarots, spectrals, tags, challenges.
-- [ ] Verificar todos los valores `⚠ verificar` del GDD contra la fuente oficial.
+- [x] Resto de bosses (La Casa, Rueda, Pez, Marca: cartas boca abajo; Campana Cerúlea: carta forzada), tags (Reposición, Orbital; 24 en total) y 12 desafíos propios (`core/challenges.ts`, pantalla Desafíos del menú). Tarots (22) y spectrals (18) ya estaban completos. Desafíos sin equilibrar.
+- [x] ~~Verificar valores `⚠ verificar` contra la fuente oficial~~ — descartado por decisión del autor.
 
 ## Fase 8 — Pulido, audio y plataforma (1 semana)
 - [ ] Música dinámica + SFX completos, mezcla de volúmenes.

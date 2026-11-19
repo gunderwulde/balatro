@@ -105,6 +105,10 @@ export const BOSS_TEXT: Record<string, Text> = {
   the_head: { name: 'La Cabeza', desc: 'Los corazones quedan debilitados' },
   the_psychic: { name: 'El Psíquico', desc: 'Hay que jugar 5 cartas' },
   the_manacle: { name: 'El Grillete', desc: '-1 tamaño de mano' },
+  the_house: { name: 'La Casa', desc: 'La primera mano se roba boca abajo' },
+  the_wheel: { name: 'La Rueda', desc: '1/7 de las cartas se roban boca abajo' },
+  the_fish: { name: 'El Pez', desc: 'Las cartas robadas tras jugar vienen boca abajo' },
+  the_mark: { name: 'La Marca', desc: 'Las figuras se roban boca abajo' },
   the_wall: { name: 'El Muro', desc: 'Objetivo ×4' },
   the_arm: { name: 'El Brazo', desc: 'Jugar una mano baja su nivel' },
   the_water: { name: 'El Agua', desc: 'Empiezas sin descartes' },
@@ -119,12 +123,15 @@ export const BOSS_TEXT: Record<string, Text> = {
   the_ox: { name: 'El Buey', desc: 'Jugar tu mano más jugada deja tu dinero a $0' },
   amber_acorn: { name: 'Bellota Ámbar', desc: 'Baraja tus jokers al empezar' },
   verdant_leaf: { name: 'Hoja Verde', desc: 'Todas las cartas debilitadas hasta que vendas un Joker' },
+  cerulean_bell: { name: 'Campana Cerúlea', desc: 'Una carta de la mano siempre está forzada a seleccionarse' },
   violet_vessel: { name: 'Vasija Violeta', desc: 'Objetivo ×6' },
   crimson_heart: { name: 'Corazón Carmesí', desc: 'Un Joker aleatorio se anula cada mano' },
 };
 
 export const TAG_TEXT: Record<string, Text> = {
   economy: { name: 'Economía', desc: 'Duplica tu dinero (máx. +$40)' },
+  top_up: { name: 'Reposición', desc: 'Crea 2 Jokers comunes (si hay hueco)' },
+  orbital: { name: 'Orbital', desc: 'Sube 3 niveles una mano al azar' },
   handy: { name: 'Práctico', desc: '+$1 por mano jugada en la run' },
   garbage: { name: 'Basura', desc: '+$1 por descarte sin usar en la run' },
   speed: { name: 'Velocidad', desc: '+$5 por ciega saltada en la run' },
@@ -169,6 +176,7 @@ export const SEAL_TEXT: Record<string, Text> = {
 /** Avisos y errores de reglas (claves de `Run.message` y de los Error de la run). */
 export const MSG_TEXT: Record<string, string> = {
   wheel_nope: '¡Nope!',
+  boss_forced: 'La Campana: la carta marcada debe ir incluida',
   boss_five: 'El Psíquico exige jugar 5 cartas',
   boss_repeat: 'El Ojo: ya jugaste ese tipo de mano',
   boss_single: 'La Boca: solo un tipo de mano esta ronda',
@@ -207,4 +215,19 @@ export const STICKER_TEXT: Record<string, Text> = {
   eternal: { name: 'Eterno', desc: 'No se puede vender' },
   perishable: { name: 'Perecedero', desc: 'Se agota tras 5 rondas' },
   rental: { name: 'Alquiler', desc: 'Cuesta $3 al final de cada ronda' },
+};
+
+export const CHALLENGE_TEXT: Record<string, Text> = {
+  omelette: { name: 'La Tortilla', desc: 'Empiezas con $0 y 1 descarte menos. Huevo (Eterno) y Gros Michel.' },
+  no_faces: { name: 'Sin Figuras', desc: 'Mazo sin J, Q ni K, +1 tamaño de mano. Hack (Eterno).' },
+  monochrome: { name: 'Monocromo', desc: 'Todas las cartas son de Picas. Punta de Flecha (Eterno).' },
+  rich_get_richer: { name: 'Ricos y Famosos', desc: 'Empiezas con $100, sin interés y 2 espacios de Joker menos.' },
+  single_shot: { name: 'Tiro Único', desc: 'Solo 1 mano, +4 descartes, +3 tamaño de mano. Ocaso (Eterno).' },
+  jokerless: { name: 'Sin Jokers', desc: 'Sin espacios de Joker, +$8 y 2 espacios de consumible extra.' },
+  glass_cannon: { name: 'Cañón de Cristal', desc: 'Todas las cartas de Cristal, -1 tamaño de mano. Joker de Cristal (Eterno).' },
+  gold_rush: { name: 'Fiebre del Oro', desc: 'Todas las cartas de Oro y $0 al empezar. Billete Dorado (Eterno).' },
+  stone_age: { name: 'Edad de Piedra', desc: 'Todas las cartas de Piedra, -2 tamaño de mano. Joker de Piedra (Eterno).' },
+  lucky_break: { name: 'Golpe de Suerte', desc: 'Todas las cartas Lucky. ¡Ups! Todo seises (Eterno).' },
+  deep_debt: { name: 'Hasta el Cuello', desc: 'Empiezas con $0, sin interés. Tarjeta de Crédito (Eterno).' },
+  marathon: { name: 'Maratón', desc: '+2 manos, -4 descartes, -2 tamaño de mano. Malabarista.' },
 };

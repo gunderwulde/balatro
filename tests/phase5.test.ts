@@ -322,7 +322,7 @@ describe('Tags', () => {
       const tag = r.offeredTag!;
       expect(TAG_LIST.map((t) => t.id)).toContain(tag);
       r.skipBlind();
-      const instant = ['economy', 'handy', 'garbage', 'speed', 'boss'].includes(tag);
+      const instant = ['economy', 'handy', 'garbage', 'speed', 'boss', 'top_up', 'orbital'].includes(tag);
       expect(r.tags.includes(tag)).toBe(!instant);
     }
     const r = new Run('B');

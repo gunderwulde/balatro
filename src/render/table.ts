@@ -139,6 +139,7 @@ export class Table {
       return;
     }
     const o = p.obj;
+    if (o.card.id === this.run.forcedCard) return;
     if (!o.selected && this.selectedCards().length >= 5) return;
     o.selected = !o.selected;
     this.onSelectionChange();
@@ -178,6 +179,7 @@ export class Table {
         sp: { x: new Spring(), y: new Spring(), z: new Spring(), rx: new Spring(), ry: new Spring(), rz: new Spring() },
       };
     });
+    for (const o of this.objs) if (o.card.id === this.run.forcedCard) o.selected = true;
     this.layout();
     this.onSelectionChange();
   }
@@ -305,12 +307,13 @@ export class Table {
         ty = wp.y + grab.y;
         tz = 1.6;
         trz = Math.max(-0.45, Math.min(0.45, (tx - g.position.x) * 0.9));
-      } else if (isHover) {
+      } else if (isHover && !this.run.faceDown.has(o.card.id)) {
         const local = g.worldToLocal(wp.clone());
         try_ = local.x * 0.25;
         trx = -local.y * 0.25;
       }
 
+      if (this.run.faceDown.has(o.card.id)) try_ = Math.PI;
       g.position.x = o.sp.x.step(g.position.x, tx, dt);
       g.position.y = o.sp.y.step(g.position.y, ty, dt) + Math.sin(t / 700 + o.card.id) * 0.0015;
       g.position.z = o.sp.z.step(g.position.z, tz, dt);

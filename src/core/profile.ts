@@ -10,6 +10,8 @@ export interface Profile {
   /** Stake más alto ganado por mazo. */
   stakeWins: Record<string, number>;
   discovered: string[];
+  /** Desafíos superados. */
+  challengeWins?: string[];
 }
 
 export function emptyProfile(): Profile {
@@ -23,6 +25,7 @@ export interface RunSummary {
   ante: number;
   bestHand: number;
   discovered: Set<string>;
+  challenge?: string | null;
 }
 
 function merge(p: Profile, r: RunSummary): Profile {
@@ -43,7 +46,9 @@ export function mergeProgress(p: Profile, r: RunSummary): Profile {
 export function recordEnd(p: Profile, r: RunSummary, won: boolean): Profile {
   const next = merge(p, r);
   next.runs = p.runs + 1;
-  if (won) {
+  if (won && r.challenge) {
+    next.challengeWins = [...new Set([...(p.challengeWins ?? []), r.challenge])];
+  } else if (won) {
     next.wins = p.wins + 1;
     next.stakeWins = { ...p.stakeWins, [r.deckId]: Math.max(p.stakeWins[r.deckId] ?? 0, r.stake) };
   }
