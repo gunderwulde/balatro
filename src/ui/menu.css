@@ -180,7 +180,7 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 .pv-nums .chips { background: var(--blue); } .pv-nums .mult { background: var(--red); }
 
 .actions {
-  position: absolute; left: 50%; top: 63%; transform: translate(-50%, -100%);
+  position: absolute; left: 50%; top: 51%; transform: translate(-50%, -100%); transition: opacity .15s;
   display: flex; gap: 18px; width: min(460px, 70vw);
 }
 .actions .btn { font-size: clamp(16px, 2.4vw, 22px); }
@@ -205,7 +205,7 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
   .side { width: auto; right: 12px; flex-direction: row; flex-wrap: wrap; }
   .side .blind-card, .side .stat-box { flex: 1 1 40%; }
   .side .preview { flex-basis: 100%; }
-  .actions { top: 60%; }
+  .actions { top: 49%; }
 }
 
 /* ===== Fase 4: jokers, tienda, ediciones ===== */
@@ -362,3 +362,5 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 .coll-item.unk { background: rgba(255,255,255,.08); border: 2px dashed rgba(244,239,227,.3); border-radius: 4px; opacity: .6; }
 .sticker { position: absolute; top: 4px; left: 4px; font: 700 10px var(--font, inherit); padding: 1px 5px; border-radius: 4px; color: #fff; border: 2px solid #1a1a22; z-index: 2; }
 .sticker.eternal { background: #8a6d1d; } .sticker.perishable { background: #4d4d57; } .sticker.rental { background: #3b66ad; }
+
+.actions.away { opacity: 0; pointer-events: none; }
