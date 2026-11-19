@@ -180,7 +180,7 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
 .pv-nums .chips { background: var(--blue); } .pv-nums .mult { background: var(--red); }
 
 .actions {
-  position: absolute; left: 50%; top: 36%; transform: translateX(-50%);
+  position: absolute; left: 50%; top: 63%; transform: translate(-50%, -100%);
   display: flex; gap: 18px; width: min(460px, 70vw);
 }
 .actions .btn { font-size: clamp(16px, 2.4vw, 22px); }
@@ -205,7 +205,7 @@ input[type='range'] { accent-color: var(--orange); width: 100%; }
   .side { width: auto; right: 12px; flex-direction: row; flex-wrap: wrap; }
   .side .blind-card, .side .stat-box { flex: 1 1 40%; }
   .side .preview { flex-basis: 100%; }
-  .actions { top: 42%; }
+  .actions { top: 60%; }
 }
 
 /* ===== Fase 4: jokers, tienda, ediciones ===== */
