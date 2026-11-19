@@ -7,7 +7,7 @@
   --orange-d: #9a5413;
   --red: #d9433c;
   --red-d: #85231f;
-  --font: 'Pixelify Sans', 'Courier New', monospace;
+  --font: Verdana, Tahoma, 'DejaVu Sans', Arial, sans-serif;
   /* Cifras: fuente sans clara (Verdana/Tahoma) para distinguir 2, 3, 6 y 8 */
   --font-num: Verdana, Tahoma, 'DejaVu Sans', Arial, sans-serif;
 }
